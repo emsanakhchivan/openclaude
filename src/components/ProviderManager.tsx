@@ -8,9 +8,7 @@ import {
   clearCodexCredentials,
   readCodexCredentialsAsync,
 } from '../utils/codexCredentials.js'
-import { setMainLoopModelOverride } from '../bootstrap/state.js'
 import { isBareMode, isEnvTruthy } from '../utils/envUtils.js'
-import { getPrimaryModel } from '../utils/providerModels.js'
 import { hasMultipleModels, parseModelList } from '../utils/providerModels.js'
 import {
   applySavedProfileToCurrentSession,
@@ -583,10 +581,9 @@ export function ProviderManager({ mode, onDone }: Props): React.ReactNode {
         }
 
         refreshProfiles()
-        setMainLoopModelOverride(undefined)
         setAppState(prev => ({
           ...prev,
-          mainLoopModel: GITHUB_PROVIDER_DEFAULT_MODEL,
+          mainLoopModel: null,
         }))
         setStatusMessage(`Active provider: ${GITHUB_PROVIDER_LABEL}`)
         setScreen('menu')
@@ -600,14 +597,14 @@ export function ProviderManager({ mode, onDone }: Props): React.ReactNode {
         return
       }
 
-      // Clear any session model override so the new provider's model takes effect
-      setMainLoopModelOverride(undefined)
-
-      // Update AppState so the UI reflects the new provider's model immediately
-      const newModel = getPrimaryModel(active.model)
+      // Clear any session model override so the new provider's model takes effect.
+      // Set mainLoopModel to null (not the new model string) so that
+      // onChangeAppState does NOT call persistActiveProviderProfileModel,
+      // which would overwrite the multi-model list with just the first model.
+      // The env vars (set by setActiveProviderProfile) provide the correct model.
       setAppState(prev => ({
         ...prev,
-        mainLoopModel: newModel,
+        mainLoopModel: null,
       }))
 
       providerLabel = active.name
