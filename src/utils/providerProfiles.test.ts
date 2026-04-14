@@ -625,3 +625,82 @@ describe('deleteProviderProfile', () => {
     expect(process.env.OPENAI_MODEL).toBe('qwen2.5:3b')
   })
 })
+
+describe('getProfileModelOptions', () => {
+  test('generates options for multi-model profile', async () => {
+    const { getProfileModelOptions } =
+      await importFreshProviderProfileModules()
+
+    const options = getProfileModelOptions(
+      buildProfile({
+        name: 'Test Provider',
+        model: 'glm-4.7, glm-4.7-flash, glm-4.7-plus',
+      }),
+    )
+
+    expect(options).toEqual([
+      { value: 'glm-4.7', label: 'glm-4.7', description: 'Provider: Test Provider' },
+      { value: 'glm-4.7-flash', label: 'glm-4.7-flash', description: 'Provider: Test Provider' },
+      { value: 'glm-4.7-plus', label: 'glm-4.7-plus', description: 'Provider: Test Provider' },
+    ])
+  })
+
+  test('returns single option for single-model profile', async () => {
+    const { getProfileModelOptions } =
+      await importFreshProviderProfileModules()
+
+    const options = getProfileModelOptions(
+      buildProfile({
+        name: 'Single Model',
+        model: 'llama3.1:8b',
+      }),
+    )
+
+    expect(options).toEqual([
+      { value: 'llama3.1:8b', label: 'llama3.1:8b', description: 'Provider: Single Model' },
+    ])
+  })
+
+  test('returns empty array for empty model field', async () => {
+    const { getProfileModelOptions } =
+      await importFreshProviderProfileModules()
+
+    const options = getProfileModelOptions(
+      buildProfile({
+        name: 'Empty',
+        model: '',
+      }),
+    )
+
+    expect(options).toEqual([])
+  })
+})
+
+describe('setActiveProviderProfile model cache', () => {
+  test('populates model cache with all models from multi-model profile on activation', async () => {
+    const {
+      setActiveProviderProfile,
+      getActiveOpenAIModelOptionsCache,
+    } = await importFreshProviderProfileModules()
+
+    mockConfigState = {
+      ...createMockConfigState(),
+      providerProfiles: [
+        buildProfile({
+          id: 'multi_provider',
+          name: 'Multi Provider',
+          model: 'glm-4.7, glm-4.7-flash, glm-4.7-plus',
+          baseUrl: 'https://api.example.com/v1',
+        }),
+      ],
+    }
+
+    setActiveProviderProfile('multi_provider')
+
+    const cache = getActiveOpenAIModelOptionsCache()
+    const cacheValues = cache.map(opt => opt.value)
+    expect(cacheValues).toContain('glm-4.7')
+    expect(cacheValues).toContain('glm-4.7-flash')
+    expect(cacheValues).toContain('glm-4.7-plus')
+  })
+})

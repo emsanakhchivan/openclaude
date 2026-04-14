@@ -5,7 +5,7 @@ import {
   type ProviderProfile,
 } from './config.js'
 import type { ModelOption } from './model/modelOptions.js'
-import { getPrimaryModel } from './providerModels.js'
+import { getPrimaryModel, parseModelList } from './providerModels.js'
 
 export type ProviderPreset =
   | 'anthropic'
@@ -591,6 +591,23 @@ export function persistActiveProviderProfileModel(
   return resolvedProfile
 }
 
+/**
+ * Generate model options from a provider profile's model field.
+ * Each comma-separated model becomes a separate option in the picker.
+ */
+export function getProfileModelOptions(profile: ProviderProfile): ModelOption[] {
+  const models = parseModelList(profile.model)
+  if (models.length === 0) {
+    return []
+  }
+
+  return models.map(model => ({
+    value: model,
+    label: model,
+    description: `Provider: ${profile.name}`,
+  }))
+}
+
 export function setActiveProviderProfile(
   profileId: string,
 ): ProviderProfile | null {
@@ -602,10 +619,20 @@ export function setActiveProviderProfile(
     return null
   }
 
+  const profileModelOptions = getProfileModelOptions(activeProfile)
+
   saveGlobalConfig(config => ({
     ...config,
     activeProviderProfileId: profileId,
-    openaiAdditionalModelOptionsCache: getModelCacheByProfile(profileId, config),
+    openaiAdditionalModelOptionsCache: profileModelOptions.length > 0
+      ? profileModelOptions
+      : getModelCacheByProfile(profileId, config),
+    openaiAdditionalModelOptionsCacheByProfile: {
+      ...(config.openaiAdditionalModelOptionsCacheByProfile ?? {}),
+      [profileId]: profileModelOptions.length > 0
+        ? profileModelOptions
+        : (config.openaiAdditionalModelOptionsCacheByProfile?.[profileId] ?? []),
+    },
   }))
 
   applyProviderProfileToProcessEnv(activeProfile)
