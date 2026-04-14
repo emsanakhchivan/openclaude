@@ -458,10 +458,11 @@ function getModelOptionsBase(fastMode = false): ModelOption[] {
     ]
   }
 
-  // When an anthropic provider profile is active with custom models,
-  // show those models instead of default Claude models
+  // When a provider profile is active, show its models in the picker.
+  // This covers both openai-compatible and anthropic provider profiles,
+  // regardless of whether the base URL is local or remote.
   const activeProfile = getActiveProviderProfile()
-  if (activeProfile && activeProfile.provider === 'anthropic') {
+  if (activeProfile) {
     const profileModels = getProfileModelOptions(activeProfile)
     if (profileModels.length > 0) {
       return [getDefaultOptionForUser(fastMode), ...profileModels]
