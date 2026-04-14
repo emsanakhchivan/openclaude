@@ -10,6 +10,7 @@ import {
 } from '../utils/codexCredentials.js'
 import { setMainLoopModelOverride } from '../bootstrap/state.js'
 import { isBareMode, isEnvTruthy } from '../utils/envUtils.js'
+import { getPrimaryModel } from '../utils/providerModels.js'
 import { hasMultipleModels, parseModelList } from '../utils/providerModels.js'
 import {
   applySavedProfileToCurrentSession,
@@ -52,6 +53,7 @@ import {
 import { Pane } from './design-system/Pane.js'
 import TextInput from './TextInput.js'
 import { useCodexOAuthFlow } from './useCodexOAuthFlow.js'
+import { useSetAppState } from '../state/AppState.js'
 
 export type ProviderManagerResult = {
   action: 'saved' | 'cancelled'
@@ -327,6 +329,7 @@ function CodexOAuthSetup({
 }
 
 export function ProviderManager({ mode, onDone }: Props): React.ReactNode {
+  const setAppState = useSetAppState()
   const initialGithubCredentialSource = getGithubCredentialSourceFromEnv()
   const initialIsGithubActive = isEnvTruthy(process.env.CLAUDE_CODE_USE_GITHUB)
   const initialHasGithubCredential = initialGithubCredentialSource !== 'none'
@@ -581,6 +584,10 @@ export function ProviderManager({ mode, onDone }: Props): React.ReactNode {
 
         refreshProfiles()
         setMainLoopModelOverride(undefined)
+        setAppState(prev => ({
+          ...prev,
+          mainLoopModel: GITHUB_PROVIDER_DEFAULT_MODEL,
+        }))
         setStatusMessage(`Active provider: ${GITHUB_PROVIDER_LABEL}`)
         setScreen('menu')
         return
@@ -595,6 +602,13 @@ export function ProviderManager({ mode, onDone }: Props): React.ReactNode {
 
       // Clear any session model override so the new provider's model takes effect
       setMainLoopModelOverride(undefined)
+
+      // Update AppState so the UI reflects the new provider's model immediately
+      const newModel = getPrimaryModel(active.model)
+      setAppState(prev => ({
+        ...prev,
+        mainLoopModel: newModel,
+      }))
 
       providerLabel = active.name
       const settingsOverrideError =
