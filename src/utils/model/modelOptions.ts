@@ -33,7 +33,11 @@ import {
 } from './model.js'
 import { has1mContext } from '../context.js'
 import { getGlobalConfig } from '../config.js'
-import { getActiveOpenAIModelOptionsCache } from '../providerProfiles.js'
+import {
+  getActiveOpenAIModelOptionsCache,
+  getActiveProviderProfile,
+  getProfileModelOptions,
+} from '../providerProfiles.js'
 import { getCachedOllamaModelOptions, isOllamaProvider } from './ollamaModels.js'
 import { getAntModels } from './antModels.js'
 
@@ -452,6 +456,16 @@ function getModelOptionsBase(fastMode = false): ModelOption[] {
         ? activeOpenAIOptions
         : getScopedAdditionalModelOptions()),
     ]
+  }
+
+  // When an anthropic provider profile is active with custom models,
+  // show those models instead of default Claude models
+  const activeProfile = getActiveProviderProfile()
+  if (activeProfile && activeProfile.provider === 'anthropic') {
+    const profileModels = getProfileModelOptions(activeProfile)
+    if (profileModels.length > 0) {
+      return [getDefaultOptionForUser(fastMode), ...profileModels]
+    }
   }
 
   // PAYG 1P API: Default (Sonnet) + Sonnet 1M + Opus 4.6 + Opus 1M + Haiku
