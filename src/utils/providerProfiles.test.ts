@@ -139,6 +139,39 @@ describe('applyProviderProfileToProcessEnv', () => {
     expect(process.env.CLAUDE_CODE_USE_OPENAI).toBeUndefined()
     expect(getFreshAPIProvider()).toBe('firstParty')
   })
+
+  test('openai profile with multi-model string sets only first model in OPENAI_MODEL', async () => {
+    const { applyProviderProfileToProcessEnv } =
+      await importFreshProviderProfileModules()
+
+    applyProviderProfileToProcessEnv(
+      buildProfile({
+        provider: 'openai',
+        baseUrl: 'https://api.openai.com/v1',
+        model: 'glm-4.7, glm-4.7-flash, glm-4.7-plus',
+      }),
+    )
+
+    expect(process.env.OPENAI_MODEL).toBe('glm-4.7')
+    expect(String(process.env.CLAUDE_CODE_USE_OPENAI)).toBe('1')
+    expect(process.env.OPENAI_BASE_URL).toBe('https://api.openai.com/v1')
+  })
+
+  test('anthropic profile with multi-model string sets only first model in ANTHROPIC_MODEL', async () => {
+    const { applyProviderProfileToProcessEnv } =
+      await importFreshProviderProfileModules()
+
+    applyProviderProfileToProcessEnv(
+      buildProfile({
+        provider: 'anthropic',
+        baseUrl: 'https://api.anthropic.com',
+        model: 'claude-sonnet-4-6, claude-opus-4-6',
+      }),
+    )
+
+    expect(process.env.ANTHROPIC_MODEL).toBe('claude-sonnet-4-6')
+    expect(process.env.ANTHROPIC_BASE_URL).toBe('https://api.anthropic.com')
+  })
 })
 
 describe('applyActiveProviderProfileFromConfig', () => {

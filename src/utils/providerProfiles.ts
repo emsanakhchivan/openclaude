@@ -5,6 +5,7 @@ import {
   type ProviderProfile,
 } from './config.js'
 import type { ModelOption } from './model/modelOptions.js'
+import { getPrimaryModel } from './providerModels.js'
 
 export type ProviderPreset =
   | 'anthropic'
@@ -311,7 +312,7 @@ function isProcessEnvAlignedWithProfile(
     return (
       !hasProviderSelectionFlags(processEnv) &&
       sameOptionalEnvValue(processEnv.ANTHROPIC_BASE_URL, profile.baseUrl) &&
-      sameOptionalEnvValue(processEnv.ANTHROPIC_MODEL, profile.model) &&
+      sameOptionalEnvValue(processEnv.ANTHROPIC_MODEL, getPrimaryModel(profile.model)) &&
       (!includeApiKey ||
         sameOptionalEnvValue(processEnv.ANTHROPIC_API_KEY, profile.apiKey))
     )
@@ -326,7 +327,7 @@ function isProcessEnvAlignedWithProfile(
     processEnv.CLAUDE_CODE_USE_VERTEX === undefined &&
     processEnv.CLAUDE_CODE_USE_FOUNDRY === undefined &&
     sameOptionalEnvValue(processEnv.OPENAI_BASE_URL, profile.baseUrl) &&
-    sameOptionalEnvValue(processEnv.OPENAI_MODEL, profile.model) &&
+    sameOptionalEnvValue(processEnv.OPENAI_MODEL, getPrimaryModel(profile.model)) &&
     (!includeApiKey ||
       sameOptionalEnvValue(processEnv.OPENAI_API_KEY, profile.apiKey))
   )
@@ -372,7 +373,7 @@ export function applyProviderProfileToProcessEnv(profile: ProviderProfile): void
   process.env[PROFILE_ENV_APPLIED_FLAG] = '1'
   process.env[PROFILE_ENV_APPLIED_ID] = profile.id
 
-  process.env.ANTHROPIC_MODEL = profile.model
+  process.env.ANTHROPIC_MODEL = getPrimaryModel(profile.model)
   if (profile.provider === 'anthropic') {
     process.env.ANTHROPIC_BASE_URL = profile.baseUrl
 
@@ -391,7 +392,7 @@ export function applyProviderProfileToProcessEnv(profile: ProviderProfile): void
 
   process.env.CLAUDE_CODE_USE_OPENAI = '1'
   process.env.OPENAI_BASE_URL = profile.baseUrl
-  process.env.OPENAI_MODEL = profile.model
+  process.env.OPENAI_MODEL = getPrimaryModel(profile.model)
 
   if (profile.apiKey) {
     process.env.OPENAI_API_KEY = profile.apiKey
