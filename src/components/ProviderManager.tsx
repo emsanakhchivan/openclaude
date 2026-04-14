@@ -9,6 +9,7 @@ import {
   readCodexCredentialsAsync,
 } from '../utils/codexCredentials.js'
 import { isBareMode, isEnvTruthy } from '../utils/envUtils.js'
+import { hasMultipleModels, parseModelList } from '../utils/providerModels.js'
 import {
   applySavedProfileToCurrentSession,
   buildCodexOAuthProfileEnv,
@@ -108,8 +109,8 @@ const FORM_STEPS: Array<{
   {
     key: 'model',
     label: 'Default model',
-    placeholder: 'e.g. llama3.1:8b',
-    helpText: 'Model name to use when this provider is active.',
+    placeholder: 'e.g. llama3.1:8b or glm-4.7, glm-4.7-flash',
+    helpText: 'Model name(s) to use. Separate multiple with commas; first is default.',
   },
   {
     key: 'apiKey',
@@ -153,7 +154,12 @@ function profileSummary(profile: ProviderProfile, isActive: boolean): string {
   const keyInfo = profile.apiKey ? 'key set' : 'no key'
   const providerKind =
     profile.provider === 'anthropic' ? 'anthropic' : 'openai-compatible'
-  return `${providerKind} · ${profile.baseUrl} · ${profile.model} · ${keyInfo}${activeSuffix}`
+  const models = parseModelList(profile.model)
+  const modelDisplay =
+    models.length > 1
+      ? `${models[0]} + ${models.length - 1} more (${models.length} models)`
+      : profile.model
+  return `${providerKind} · ${profile.baseUrl} · ${modelDisplay} · ${keyInfo}${activeSuffix}`
 }
 
 function getGithubCredentialSourceFromEnv(
