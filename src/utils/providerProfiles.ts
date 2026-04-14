@@ -549,6 +549,14 @@ export function persistActiveProviderProfileModel(
     return null
   }
 
+  // If the model is already part of the profile's model list (e.g. from a
+  // multi-model profile or a provider switch), don't overwrite the field.
+  // This preserves comma-separated model lists like "glm-4.5, glm-4.7".
+  const existingModels = parseModelList(activeProfile.model)
+  if (existingModels.includes(nextModel)) {
+    return activeProfile
+  }
+
   saveGlobalConfig(current => {
     const currentProfiles = getProviderProfiles(current)
     const profileIndex = currentProfiles.findIndex(
