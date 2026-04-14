@@ -8,6 +8,7 @@ import {
   clearCodexCredentials,
   readCodexCredentialsAsync,
 } from '../utils/codexCredentials.js'
+import { setMainLoopModelOverride } from '../bootstrap/state.js'
 import { isBareMode, isEnvTruthy } from '../utils/envUtils.js'
 import { hasMultipleModels, parseModelList } from '../utils/providerModels.js'
 import {
@@ -579,6 +580,7 @@ export function ProviderManager({ mode, onDone }: Props): React.ReactNode {
         }
 
         refreshProfiles()
+        setMainLoopModelOverride(undefined)
         setStatusMessage(`Active provider: ${GITHUB_PROVIDER_LABEL}`)
         setScreen('menu')
         return
@@ -590,6 +592,9 @@ export function ProviderManager({ mode, onDone }: Props): React.ReactNode {
         setScreen('menu')
         return
       }
+
+      // Clear any session model override so the new provider's model takes effect
+      setMainLoopModelOverride(undefined)
 
       providerLabel = active.name
       const settingsOverrideError =
