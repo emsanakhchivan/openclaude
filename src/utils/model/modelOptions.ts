@@ -458,19 +458,17 @@ function getModelOptionsBase(fastMode = false): ModelOption[] {
     ]
   }
 
-  // When a provider profile's env is applied to this session, show its
-  // models in the picker. This covers both openai-compatible and anthropic
-  // provider profiles, regardless of whether the base URL is local or remote.
+  // When a provider profile's env is applied, collect its models so they
+  // can be appended to the standard picker options below.
   // We check PROFILE_ENV_APPLIED to avoid the ?? profiles[0] fallback in
   // getActiveProviderProfile which would affect users with inactive profiles.
   const profileEnvApplied = process.env.CLAUDE_CODE_PROVIDER_PROFILE_ENV_APPLIED === '1'
+  const profileModelOptions: ModelOption[] = []
   if (profileEnvApplied) {
     const activeProfile = getActiveProviderProfile()
     if (activeProfile) {
-      const profileModels = getProfileModelOptions(activeProfile)
-      if (profileModels.length > 0) {
-        return [getDefaultOptionForUser(fastMode), ...profileModels]
-      }
+      const models = getProfileModelOptions(activeProfile)
+      profileModelOptions.push(...models)
     }
   }
 
@@ -489,6 +487,7 @@ function getModelOptionsBase(fastMode = false): ModelOption[] {
       }
     }
     payg1POptions.push(getHaiku45Option())
+    payg1POptions.push(...profileModelOptions)
     return payg1POptions
   }
 
@@ -528,6 +527,7 @@ function getModelOptionsBase(fastMode = false): ModelOption[] {
   } else {
     payg3pOptions.push(getHaikuOption())
   }
+  payg3pOptions.push(...profileModelOptions)
   return payg3pOptions
 }
 
