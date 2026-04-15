@@ -458,14 +458,19 @@ function getModelOptionsBase(fastMode = false): ModelOption[] {
     ]
   }
 
-  // When a provider profile is active, show its models in the picker.
-  // This covers both openai-compatible and anthropic provider profiles,
-  // regardless of whether the base URL is local or remote.
-  const activeProfile = getActiveProviderProfile()
-  if (activeProfile) {
-    const profileModels = getProfileModelOptions(activeProfile)
-    if (profileModels.length > 0) {
-      return [getDefaultOptionForUser(fastMode), ...profileModels]
+  // When a provider profile's env is applied to this session, show its
+  // models in the picker. This covers both openai-compatible and anthropic
+  // provider profiles, regardless of whether the base URL is local or remote.
+  // We check PROFILE_ENV_APPLIED to avoid the ?? profiles[0] fallback in
+  // getActiveProviderProfile which would affect users with inactive profiles.
+  const profileEnvApplied = process.env.CLAUDE_CODE_PROVIDER_PROFILE_ENV_APPLIED === '1'
+  if (profileEnvApplied) {
+    const activeProfile = getActiveProviderProfile()
+    if (activeProfile) {
+      const profileModels = getProfileModelOptions(activeProfile)
+      if (profileModels.length > 0) {
+        return [getDefaultOptionForUser(fastMode), ...profileModels]
+      }
     }
   }
 
