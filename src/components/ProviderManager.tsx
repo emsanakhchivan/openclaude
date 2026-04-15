@@ -157,9 +157,9 @@ function profileSummary(profile: ProviderProfile, isActive: boolean): string {
     profile.provider === 'anthropic' ? 'anthropic' : 'openai-compatible'
   const models = parseModelList(profile.model)
   const modelDisplay =
-    models.length > 1
-      ? `${models[0]} + ${models.length - 1} more (${models.length} models)`
-      : profile.model
+    models.length <= 3
+      ? models.join(', ')
+      : `${models[0]}, ${models[1]} + ${models.length - 2} more`
   return `${providerKind} · ${profile.baseUrl} · ${modelDisplay} · ${keyInfo}${activeSuffix}`
 }
 
