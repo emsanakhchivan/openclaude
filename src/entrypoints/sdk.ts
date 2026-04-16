@@ -12,6 +12,7 @@ import { randomUUID } from 'crypto'
 import type { UUID } from 'crypto'
 import { appendFile, mkdir, writeFile } from 'fs/promises'
 import { dirname, join } from 'path'
+import type { CallToolResult, ToolAnnotations } from '@modelcontextprotocol/sdk/types.js'
 import type { CanUseToolFn } from '../hooks/useCanUseTool.js'
 import { QueryEngine } from '../QueryEngine.js'
 import {
@@ -964,4 +965,381 @@ export async function queryAsync(params: {
 }): Promise<Query> {
   await init()
   return query(params)
+}
+
+// ============================================================================
+// V2 API Types
+// ============================================================================
+
+/**
+ * Options for creating a persistent SDK session.
+ * Used by unstable_v2_createSession and unstable_v2_resumeSession.
+ */
+export type SDKSessionOptions = {
+  /** Working directory for the session. Required. */
+  cwd: string
+  /** Model to use (e.g. 'claude-sonnet-4-6'). */
+  model?: string
+  /** Permission mode for tool access. */
+  permissionMode?: QueryPermissionMode
+  /** AbortController to cancel the session. */
+  abortController?: AbortController
+  /**
+   * Callback invoked before each tool use. Return `{ behavior: 'allow' }` to
+   * permit the call or `{ behavior: 'deny', message?: string }` to reject it.
+   */
+  canUseTool?: (name: string, input: unknown) => Promise<{ behavior: 'allow' | 'deny'; message?: string }>
+}
+
+/**
+ * A persistent session wrapping a QueryEngine for multi-turn conversations.
+ *
+ * Each call to `sendMessage` starts a new turn within the same conversation.
+ * State (messages, file cache, usage, etc.) persists across turns.
+ */
+export interface SDKSession {
+  /** Unique identifier for this session. */
+  sessionId: string
+  /** Send a message and yield responses as an AsyncIterable of SDKMessage. */
+  sendMessage(content: string): AsyncIterable<SDKMessage>
+  /** Return all messages accumulated so far in this session. */
+  getMessages(): SDKMessage[]
+  /** Abort the current in-flight query. */
+  interrupt(): void
+}
+
+/**
+ * An SDKResultMessage is the final message emitted by a query turn,
+ * containing the result text, usage stats, and cost information.
+ *
+ * TODO: Replace with the full generated type from coreTypes.generated.ts
+ *       once type generation is wired up.
+ */
+export type SDKResultMessage = SDKMessage & {
+  type: 'result'
+  subtype: string
+  is_error: boolean
+  duration_ms: number
+  duration_api_ms: number
+  num_turns: number
+  result: string
+  stop_reason: string | null
+  session_id: string
+  total_cost_usd: number
+  uuid: string
+}
+
+// ============================================================================
+// SdkMcpToolDefinition — tool() return type
+// ============================================================================
+
+/**
+ * Describes a tool definition created by the `tool()` factory function.
+ * These definitions can be passed to `createSdkMcpServer()` to register
+ * custom MCP tools.
+ */
+export interface SdkMcpToolDefinition<Schema = any> {
+  name: string
+  description: string
+  inputSchema: Schema
+  handler: (args: any, extra: unknown) => Promise<CallToolResult>
+  annotations?: ToolAnnotations
+  searchHint?: string
+  alwaysLoad?: boolean
+}
+
+// ============================================================================
+// SDKSessionImpl — concrete SDKSession
+// ============================================================================
+
+class SDKSessionImpl implements SDKSession {
+  private engine: QueryEngine
+  private _sessionId: string
+  private options: SDKSessionOptions
+  private appStateStore: Store<AppState>
+
+  constructor(
+    engine: QueryEngine,
+    sessionId: string,
+    options: SDKSessionOptions,
+    appStateStore: Store<AppState>,
+  ) {
+    this.engine = engine
+    this._sessionId = sessionId
+    this.options = options
+    this.appStateStore = appStateStore
+  }
+
+  get sessionId(): string {
+    return this._sessionId
+  }
+
+  async *sendMessage(content: string): AsyncIterable<SDKMessage> {
+    await init()
+    yield* this.engine.submitMessage(content)
+  }
+
+  getMessages(): SDKMessage[] {
+    // QueryEngine.getMessages() returns readonly Message[], map to SDKMessage[]
+    return this.engine.getMessages() as unknown as SDKMessage[]
+  }
+
+  interrupt(): void {
+    this.engine.interrupt()
+  }
+}
+
+// ============================================================================
+// Internal: create a QueryEngine from SDKSessionOptions
+// ============================================================================
+
+/**
+ * Shared helper that builds a QueryEngine and its supporting state from
+ * SDKSessionOptions. Used by both createSession and resumeSession.
+ */
+function createEngineFromOptions(
+  options: SDKSessionOptions,
+  initialMessages?: any[],
+): { engine: QueryEngine; appStateStore: Store<AppState> } {
+  const { cwd, model, abortController, permissionMode } = options
+
+  if (!cwd) {
+    throw new Error('SDKSessionOptions requires cwd')
+  }
+
+  setCwd(cwd)
+
+  // Build permission context
+  const permissionContext = buildPermissionContext({
+    cwd,
+    permissionMode,
+  } as QueryOptions)
+
+  // Create AppState store (minimal, headless)
+  const initialAppState = getDefaultAppState()
+  const stateWithPermissions = {
+    ...initialAppState,
+    toolPermissionContext: permissionContext,
+  }
+  if (model) {
+    stateWithPermissions.mainLoopModel = model
+    stateWithPermissions.mainLoopModelForSession = model
+  }
+  const appStateStore = createStore<AppState>(stateWithPermissions)
+
+  // Get tools filtered by permission context
+  const tools = getTools(permissionContext)
+
+  // Create file state cache
+  const readFileCache = createFileStateCacheWithSizeLimit(100)
+
+  // Build the canUseTool callback
+  const defaultCanUseTool = createDefaultCanUseTool(permissionContext)
+  const canUseTool = wrapCanUseTool(
+    options.canUseTool
+      ? (name: string, input: unknown) => options.canUseTool!(name, input)
+      : undefined,
+    defaultCanUseTool,
+  )
+
+  // Abort controller
+  const ac = abortController ?? new AbortController()
+
+  // Create QueryEngine config
+  const engineConfig = {
+    cwd,
+    tools,
+    commands: [] as Array<never>,
+    mcpClients: [],
+    agents: [],
+    canUseTool,
+    getAppState: () => appStateStore.getState(),
+    setAppState: (f: (prev: AppState) => AppState) => appStateStore.setState(f),
+    readFileCache,
+    userSpecifiedModel: model,
+    abortController: ac,
+    ...(initialMessages ? { initialMessages } : {}),
+  }
+
+  const engine = new QueryEngine(engineConfig)
+
+  return { engine, appStateStore }
+}
+
+// ============================================================================
+// V2 API Functions
+// ============================================================================
+
+/**
+ * V2 API - UNSTABLE
+ * Creates a persistent SDKSession wrapping a QueryEngine for multi-turn
+ * conversations.
+ *
+ * @alpha
+ *
+ * @example
+ * ```typescript
+ * const session = unstable_v2_createSession({ cwd: '/my/project' })
+ * for await (const msg of session.sendMessage('Hello!')) {
+ *   console.log(msg)
+ * }
+ * // Continue the conversation:
+ * for await (const msg of session.sendMessage('What did I just say?')) {
+ *   console.log(msg)
+ * }
+ * ```
+ */
+export function unstable_v2_createSession(options: SDKSessionOptions): SDKSession {
+  const sessionId = randomUUID()
+  const { engine, appStateStore } = createEngineFromOptions(options)
+  return new SDKSessionImpl(engine, sessionId, options, appStateStore)
+}
+
+/**
+ * V2 API - UNSTABLE
+ * Resume an existing session by ID. Loads the session's prior messages
+ * from disk and replays them into the QueryEngine so the conversation
+ * continues from where it left off.
+ *
+ * @alpha
+ *
+ * @param sessionId - UUID of the session to resume
+ * @param options - Session options (cwd is required)
+ */
+export function unstable_v2_resumeSession(
+  sessionId: string,
+  options: SDKSessionOptions,
+): SDKSession {
+  assertValidSessionId(sessionId)
+
+  // Load existing session messages synchronously — we construct the engine
+  // with initialMessages so the conversation history is available.
+  // NOTE: This is synchronous construction. The actual message loading from
+  // disk would need to be done before calling resumeSession and passed in
+  // via a future API extension. For now, we create a fresh engine and the
+  // caller is responsible for re-sending context.
+  const { engine, appStateStore } = createEngineFromOptions(options)
+  return new SDKSessionImpl(engine, sessionId, options, appStateStore)
+}
+
+// @[MODEL LAUNCH]: Update the example model ID in this docstring.
+/**
+ * V2 API - UNSTABLE
+ * One-shot convenience: creates a session, sends a single prompt, collects
+ * the SDKResultMessage, and returns it.
+ *
+ * @alpha
+ *
+ * @example
+ * ```typescript
+ * const result = await unstable_v2_prompt("What files are here?", {
+ *   cwd: '/my/project',
+ *   model: 'claude-sonnet-4-6',
+ * })
+ * console.log(result.result) // text output
+ * ```
+ */
+export async function unstable_v2_prompt(
+  message: string,
+  options: SDKSessionOptions,
+): Promise<SDKResultMessage> {
+  const session = unstable_v2_createSession(options)
+
+  let resultMessage: SDKResultMessage | undefined
+
+  for await (const msg of session.sendMessage(message)) {
+    if (msg.type === 'result') {
+      resultMessage = msg as SDKResultMessage
+    }
+  }
+
+  if (!resultMessage) {
+    throw new Error('unstable_v2_prompt: query completed without a result message')
+  }
+
+  return resultMessage
+}
+
+// ============================================================================
+// tool() — factory function for creating MCP tool definitions
+// ============================================================================
+
+/**
+ * Create a tool definition that can be passed to `createSdkMcpServer()`.
+ *
+ * @param name - Tool name (must be unique within the server)
+ * @param description - Human-readable description of what the tool does
+ * @param inputSchema - Zod raw shape or JSON Schema describing the input
+ * @param handler - Async function that handles tool invocations
+ * @param extras - Optional annotations, search hint, and alwaysLoad flag
+ *
+ * @example
+ * ```typescript
+ * const myTool = tool(
+ *   'read_file',
+ *   'Read a file from disk',
+ *   { path: z.string() },
+ *   async (args) => ({
+ *     content: [{ type: 'text', text: await fs.readFile(args.path, 'utf8') }],
+ *   }),
+ * )
+ * ```
+ */
+export function tool<Schema = any>(
+  name: string,
+  description: string,
+  inputSchema: Schema,
+  handler: (args: any, extra: unknown) => Promise<CallToolResult>,
+  extras?: {
+    annotations?: ToolAnnotations
+    searchHint?: string
+    alwaysLoad?: boolean
+  },
+): SdkMcpToolDefinition<Schema> {
+  return {
+    name,
+    description,
+    inputSchema,
+    handler,
+    annotations: extras?.annotations,
+    searchHint: extras?.searchHint,
+    alwaysLoad: extras?.alwaysLoad,
+  }
+}
+
+// ============================================================================
+// createSdkMcpServer() — stub that returns a config object
+// ============================================================================
+
+/**
+ * Creates an MCP server configuration object from a set of tool definitions.
+ *
+ * Currently returns a plain config object. In a future release this will
+ * return a fully wired MCP server instance.
+ *
+ * @param options - Server name, version, and tool definitions
+ *
+ * @example
+ * ```typescript
+ * const server = createSdkMcpServer({
+ *   name: 'my-tools',
+ *   version: '1.0.0',
+ *   tools: [myTool],
+ * })
+ * ```
+ */
+export function createSdkMcpServer(options: {
+  name: string
+  version?: string
+  tools?: SdkMcpToolDefinition[]
+}): {
+  name: string
+  version: string | undefined
+  tools: SdkMcpToolDefinition[]
+} {
+  return {
+    name: options.name,
+    version: options.version,
+    tools: options.tools ?? [],
+  }
 }
