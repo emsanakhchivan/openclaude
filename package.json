@@ -6,9 +6,20 @@
   "bin": {
     "openclaude": "./bin/openclaude"
   },
+  "exports": {
+    ".": {
+      "types": "./src/entrypoints/sdk.d.ts",
+      "import": "./dist/sdk.mjs"
+    }
+  },
+  "types": "./src/entrypoints/sdk.d.ts",
   "files": [
     "bin/",
     "dist/cli.mjs",
+    "dist/cli.mjs.map",
+    "dist/sdk.mjs",
+    "dist/sdk.mjs.map",
+    "src/entrypoints/sdk.d.ts",
     "README.md"
   ],
   "scripts": {
