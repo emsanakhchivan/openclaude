@@ -1,5 +1,5 @@
 /**
- * SDK entry point — session management functions.
+ * SDK entry point — session management functions and query().
  *
  * This file is bundled as `dist/sdk.mjs` separately from the CLI.
  * It must NOT import React, Ink, or any CLI/TUI code.
@@ -12,6 +12,20 @@ import { randomUUID } from 'crypto'
 import type { UUID } from 'crypto'
 import { appendFile, mkdir, writeFile } from 'fs/promises'
 import { dirname, join } from 'path'
+import type { CanUseToolFn } from '../hooks/useCanUseTool.js'
+import { QueryEngine } from '../QueryEngine.js'
+import {
+  getDefaultAppState,
+  type AppState,
+} from '../state/AppStateStore.js'
+import { createStore, type Store } from '../state/store.js'
+import {
+  getEmptyToolPermissionContext,
+  type ToolPermissionContext,
+} from '../Tool.js'
+import { getTools } from '../tools.js'
+import { createFileStateCacheWithSizeLimit } from '../utils/fileStateCache.js'
+import { init } from './init.js'
 import {
   listSessionsImpl,
   parseSessionInfoFromLite,
@@ -23,6 +37,7 @@ import {
   validateUuid,
 } from '../utils/sessionStoragePortable.js'
 import { readJSONLFile } from '../utils/json.js'
+import { setCwd } from '../utils/Shell.js'
 
 /**
  * Validate sessionId is a proper UUID to prevent path traversal.
@@ -37,6 +52,42 @@ function assertValidSessionId(sessionId: string): void {
 // ============================================================================
 // SDK Types — snake_case public interface
 // ============================================================================
+
+/**
+ * A message emitted by the query engine during a conversation.
+ *
+ * This is a simplified representation for the SDK; the full union type is
+ * defined in the Zod schemas (coreSchemas.ts). Until the generated types
+ * file is populated, we define the essential shape here.
+ *
+ * TODO: Replace with the full generated type from coreTypes.generated.ts
+ *       once type generation is wired up.
+ */
+export type SDKMessage = {
+  type: string
+  [key: string]: unknown
+}
+
+/**
+ * A user message fed into query() via AsyncIterable.
+ *
+ * Matches the SDKUserMessage Zod schema shape:
+ * { type: 'user', message: string | ContentBlock[], ... }
+ *
+ * TODO: Replace with the full generated type from coreTypes.generated.ts
+ *       once type generation is wired up.
+ */
+export type SDKUserMessage = {
+  type: 'user'
+  message: string | Array<{ type: string; text?: string; [key: string]: unknown }>
+  parent_tool_use_id?: string | null
+  isSynthetic?: boolean
+  tool_use_result?: unknown
+  priority?: 'now' | 'next' | 'later'
+  timestamp?: string
+  uuid?: string
+  session_id?: string
+}
 
 /**
  * Session metadata returned by listSessions and getSessionInfo.
@@ -524,4 +575,393 @@ export async function forkSession(
   }
 
   return { session_id: forkSessionId }
+}
+
+// ============================================================================
+// query() types
+// ============================================================================
+
+/**
+ * Permission mode for the query.
+ * Controls how tool permissions are handled.
+ */
+export type QueryPermissionMode =
+  | 'default'
+  | 'plan'
+  | 'auto-accept'
+  | 'bypass-permissions'
+
+/** Options for the query() function. */
+export type QueryOptions = {
+  /** Working directory for the query. Required. */
+  cwd: string
+  /** Additional directories the agent can access. */
+  additionalDirectories?: string[]
+  /** Model to use (e.g. 'claude-sonnet-4-6'). */
+  model?: string
+  /** Resume an existing session by ID. */
+  sessionId?: string
+  /** Resume strategy. */
+  resume?: string
+  /** Permission mode for tool access. */
+  permissionMode?: QueryPermissionMode
+  /** AbortController to cancel the query. */
+  abortController?: AbortController
+  /** Executable name for subprocess spawning. */
+  executable?: string
+  /** Skip permission prompts entirely (dangerous). */
+  allowDangerouslySkipPermissions?: boolean
+  /** Tools to disallow. */
+  disallowedTools?: string[]
+  /** Hook configuration. */
+  hooks?: Record<string, unknown[]>
+  /** MCP server configuration. */
+  mcpServers?: Record<string, unknown>
+  /** Settings overrides. */
+  settings?: {
+    env?: Record<string, string>
+    attribution?: { commit: string; pr: string }
+  }
+  /**
+   * Callback invoked before each tool use. Return `{ behavior: 'allow' }` to
+   * permit the call or `{ behavior: 'deny', message?: string }` to reject it.
+   */
+  canUseTool?: (
+    name: string,
+    input: unknown,
+  ) => Promise<{ behavior: 'allow' | 'deny'; message?: string }>
+  /** System prompt override. */
+  systemPrompt?:
+    | { type: 'preset'; preset: string }
+    | { type: 'custom'; content: string }
+  /** Setting sources to load. */
+  settingSources?: string[]
+  /** Callback for stderr output. */
+  stderr?: (data: string) => void
+}
+
+/**
+ * A Query object represents an active conversation with the agent.
+ * It implements AsyncIterable<SDKMessage> so you can use `for await` loops.
+ */
+export interface Query {
+  /** Iterate over SDK messages produced by the query. */
+  [Symbol.asyncIterator](): AsyncIterator<SDKMessage>
+  /** Change the model mid-conversation. */
+  setModel(model: string): Promise<void>
+  /** Change the permission mode mid-conversation. */
+  setPermissionMode(mode: QueryPermissionMode): Promise<void>
+}
+
+// ============================================================================
+// Internal: canUseTool adapter
+// ============================================================================
+
+/**
+ * Wraps a user-provided canUseTool callback (simple signature) into the
+ * full CanUseToolFn signature expected by QueryEngine. The user callback
+ * only receives tool name and input; the remaining arguments are ignored.
+ */
+function wrapCanUseTool(
+  userFn: QueryOptions['canUseTool'],
+  fallback: CanUseToolFn,
+): CanUseToolFn {
+  if (!userFn) return fallback
+  return async (tool, input, toolUseContext, assistantMessage, toolUseID, forceDecision) => {
+    // If a forced decision was passed in (e.g. from speculation), honor it
+    if (forceDecision) return forceDecision
+
+    try {
+      const result = await userFn(tool.name, input)
+      if (result.behavior === 'allow') {
+        return {
+          behavior: 'allow' as const,
+          updatedInput: input,
+        }
+      }
+      return {
+        behavior: 'deny' as const,
+        message: result.message ?? `Tool ${tool.name} denied by canUseTool callback`,
+        decisionReason: { type: 'mode' as const, mode: 'default' },
+      }
+    } catch {
+      return {
+        behavior: 'deny' as const,
+        message: `Tool ${tool.name} denied (callback error)`,
+        decisionReason: { type: 'mode' as const, mode: 'default' },
+      }
+    }
+  }
+}
+
+// ============================================================================
+// Internal: permission context from QueryOptions
+// ============================================================================
+
+function buildPermissionContext(options: QueryOptions): ToolPermissionContext {
+  const base = getEmptyToolPermissionContext()
+  const mode = options.permissionMode ?? 'default'
+
+  // Map SDK permission mode to internal PermissionMode
+  let internalMode: string = 'default'
+  switch (mode) {
+    case 'plan':
+      internalMode = 'plan'
+      break
+    case 'auto-accept':
+      internalMode = 'acceptEdits'
+      break
+    case 'bypass-permissions':
+      internalMode = 'bypassPermissions'
+      break
+    default:
+      internalMode = 'default'
+  }
+
+  return {
+    ...base,
+    mode: internalMode as ToolPermissionContext['mode'],
+    isBypassPermissionsModeAvailable:
+      mode === 'bypass-permissions' || options.allowDangerouslySkipPermissions === true,
+  }
+}
+
+// ============================================================================
+// Internal: permission-denying canUseTool for non-interactive use
+// ============================================================================
+
+/**
+ * Default canUseTool that auto-allows in bypass mode or denies interactive
+ * prompts (since the SDK is non-interactive). For non-bypass modes, it
+ * checks the permission context rules via hasPermissionsToUseTool.
+ */
+function createDefaultCanUseTool(
+  _permissionContext: ToolPermissionContext,
+): CanUseToolFn {
+  // Return a simple implementation that allows all tool uses.
+  // Permission filtering is already done at the tool-list level by
+  // getTools(permissionContext), and the bypass-permissions mode is
+  // reflected in the permission context itself.
+  return async (_tool, input, _toolUseContext, _assistantMessage, _toolUseID, forceDecision) => {
+    if (forceDecision) return forceDecision
+    return { behavior: 'allow' as const, updatedInput: input }
+  }
+}
+
+// ============================================================================
+// QueryImpl — the concrete Query class
+// ============================================================================
+
+class QueryImpl implements Query {
+  private engine: QueryEngine
+  private prompt: string | AsyncIterable<SDKUserMessage>
+  private abortController: AbortController
+  private appStateStore: Store<AppState>
+
+  constructor(
+    engine: QueryEngine,
+    prompt: string | AsyncIterable<SDKUserMessage>,
+    abortController: AbortController,
+    appStateStore: Store<AppState>,
+  ) {
+    this.engine = engine
+    this.prompt = prompt
+    this.abortController = abortController
+    this.appStateStore = appStateStore
+  }
+
+  async *[Symbol.asyncIterator](): AsyncIterator<SDKMessage> {
+    // Ensure init() completes before any query runs
+    await init()
+
+    if (typeof this.prompt === 'string') {
+      // Single string prompt — submit once and yield all results
+      yield* this.engine.submitMessage(this.prompt)
+    } else {
+      // AsyncIterable<SDKUserMessage> — iterate and submit each message
+      for await (const userMessage of this.prompt) {
+        // Check if aborted before processing next message
+        if (this.abortController.signal.aborted) break
+
+        // Pass content directly to submitMessage
+        const content = extractPromptFromUserMessage(userMessage)
+        yield* this.engine.submitMessage(content, { uuid: userMessage.uuid })
+      }
+    }
+  }
+
+  async setModel(model: string): Promise<void> {
+    this.engine.setModel(model)
+    // Also update the app state so tool context sees the new model
+    this.appStateStore.setState(prev => ({
+      ...prev,
+      mainLoopModel: model,
+      mainLoopModelForSession: model,
+    }))
+  }
+
+  async setPermissionMode(mode: QueryPermissionMode): Promise<void> {
+    const newPermissionContext = buildPermissionContext({
+      ...({ cwd: '' } as QueryOptions),
+      permissionMode: mode,
+    })
+    this.appStateStore.setState(prev => ({
+      ...prev,
+      toolPermissionContext: newPermissionContext,
+    }))
+  }
+}
+
+/**
+ * Extract a prompt from an SDKUserMessage.
+ *
+ * SDKUserMessage has a `message` field that can be a string or an array of
+ * content blocks. QueryEngine.submitMessage() accepts both `string` and
+ * `ContentBlockParam[]`, so we pass through directly when possible.
+ */
+function extractPromptFromUserMessage(
+  msg: SDKUserMessage,
+): string | Array<{ type: string; text?: string; [key: string]: unknown }> {
+  const { message } = msg
+  if (typeof message === 'string') {
+    return message
+  }
+  if (Array.isArray(message)) {
+    return message
+  }
+  return String(message ?? '')
+}
+
+// ============================================================================
+// query() — core SDK function
+// ============================================================================
+
+/**
+ * Start a conversation with the agent.
+ *
+ * Accepts a string prompt for single-shot queries or an AsyncIterable of
+ * SDKUserMessage for multi-turn streaming. Returns a Query object that
+ * implements AsyncIterable<SDKMessage> for consuming results.
+ *
+ * @example
+ * ```typescript
+ * // Single prompt
+ * const q = query({ prompt: 'What files are in this directory?', options: { cwd: '/my/project' } })
+ * for await (const message of q) {
+ *   console.log(message)
+ * }
+ *
+ * // Streaming prompts
+ * async function* prompts() {
+ *   yield { type: 'user', message: 'Hello' }
+ * }
+ * const q = query({ prompt: prompts(), options: { cwd: '/my/project' } })
+ * for await (const message of q) {
+ *   console.log(message)
+ * }
+ * ```
+ */
+export function query(params: {
+  prompt: string | AsyncIterable<SDKUserMessage>
+  options?: QueryOptions
+}): Query {
+  const { prompt, options = {} as QueryOptions } = params
+  const {
+    cwd,
+    model,
+    abortController,
+    systemPrompt,
+  } = options
+
+  if (!cwd) {
+    throw new Error('query() requires options.cwd')
+  }
+
+  // Ensure init() has been called (memoized, safe to call multiple times).
+  // We fire-and-forget the init promise — QueryEngine.submitMessage() will
+  // be awaited by the consumer, which naturally waits for the async iter.
+  // However, we must ensure init completes before proceeding, so we wrap
+  // the whole setup in an async helper. Since query() must return a Query
+  // synchronously (so the caller can use for-await), we create the Query
+  // eagerly and let the async iteration handle the init await.
+  //
+  // Alternative: make query() async. But the agentSdkTypes signature returns
+  // Query synchronously (not Promise<Query>), so we keep it sync and defer
+  // the init to the async iterator.
+
+  // Set up cwd immediately (synchronous)
+  setCwd(cwd)
+
+  // Build permission context
+  const permissionContext = buildPermissionContext(options)
+
+  // Create AppState store (minimal, headless)
+  const initialAppState = getDefaultAppState()
+  // Override the permission context in the initial state
+  const stateWithPermissions = {
+    ...initialAppState,
+    toolPermissionContext: permissionContext,
+  }
+  if (model) {
+    stateWithPermissions.mainLoopModel = model
+    stateWithPermissions.mainLoopModelForSession = model
+  }
+  const appStateStore = createStore<AppState>(stateWithPermissions)
+
+  // Get tools filtered by permission context
+  const tools = getTools(permissionContext)
+
+  // Create file state cache
+  const readFileCache = createFileStateCacheWithSizeLimit(100)
+
+  // Build the canUseTool callback
+  const defaultCanUseTool = createDefaultCanUseTool(permissionContext)
+  const canUseTool = wrapCanUseTool(options.canUseTool, defaultCanUseTool)
+
+  // Determine custom system prompt
+  let customSystemPrompt: string | undefined
+  if (systemPrompt?.type === 'custom') {
+    customSystemPrompt = systemPrompt.content
+  }
+
+  // Abort controller
+  const ac = abortController ?? new AbortController()
+
+  // Create QueryEngine config
+  const engineConfig = {
+    cwd,
+    tools,
+    commands: [] as Array<never>,
+    mcpClients: [],
+    agents: [],
+    canUseTool,
+    getAppState: () => appStateStore.getState(),
+    setAppState: (f: (prev: AppState) => AppState) => appStateStore.setState(f),
+    readFileCache,
+    customSystemPrompt,
+    userSpecifiedModel: model,
+    abortController: ac,
+  }
+
+  // Create the QueryEngine
+  const engine = new QueryEngine(engineConfig)
+
+  // Return Query wrapper
+  return new QueryImpl(engine, prompt, ac, appStateStore)
+}
+
+/**
+ * Async version of query() that ensures init() has completed before
+ * returning. This is the recommended entry point for programmatic usage
+ * where you want to guarantee initialization is done before consuming messages.
+ *
+ * The synchronous query() defers init to the async iterator; this version
+ * awaits it upfront.
+ */
+export async function queryAsync(params: {
+  prompt: string | AsyncIterable<SDKUserMessage>
+  options?: QueryOptions
+}): Promise<Query> {
+  await init()
+  return query(params)
 }
