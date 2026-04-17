@@ -40,6 +40,7 @@ import {
 import { readJSONLFile } from '../utils/json.js'
 import { setCwd } from '../utils/Shell.js'
 import { setOriginalCwd } from '../bootstrap/state.js'
+import { getAgentDefinitionsWithOverrides } from '../tools/AgentTool/loadAgentsDir.js'
 import type {
   RewindFilesResult,
   McpServerStatus,
@@ -937,6 +938,19 @@ class QueryImpl implements Query {
       // init() applies config env vars, so we apply our overrides AFTER
       await init()
 
+      // Load agent definitions from .claude/agents directory
+      // Required for subagent support - AgentTool uses agentDefinitions.activeAgents
+      try {
+        const agentDefs = await getAgentDefinitionsWithOverrides(this.cwd)
+        this.appStateStore.setState(prev => ({
+          ...prev,
+          agentDefinitions: agentDefs,
+        }))
+      } catch (err) {
+        console.log(`[sdk] Failed to load agents:`, err)
+        // Continue without agents - some tools may fail but basic queries work
+      }
+
       // Apply env overrides AFTER init() so they override config file env vars
       if (this.envOverrides && Object.keys(this.envOverrides).length > 0) {
         // Snapshot existing values for keys we'll override
@@ -1465,6 +1479,18 @@ class SDKSessionImpl implements SDKSession {
 
   async *sendMessage(content: string): AsyncIterable<SDKMessage> {
     await init()
+
+    // Load agent definitions for subagent support
+    try {
+      const agentDefs = await getAgentDefinitionsWithOverrides(this.options.cwd)
+      this.appStateStore.setState(prev => ({
+        ...prev,
+        agentDefinitions: agentDefs,
+      }))
+    } catch (err) {
+      console.log(`[sdk] Failed to load agents:`, err)
+    }
+
     yield* this.engine.submitMessage(content)
   }
 
