@@ -966,37 +966,46 @@ class QueryImpl implements Query {
       }
 
       // Handle fork: if sessionId and fork=true, fork the session first
+      // If the session file doesn't exist (e.g., first query didn't persist),
+      // just start a new session instead of throwing an error
       if (this.sessionId && this.shouldFork) {
-        const forkResult = await forkSession(this.sessionId, { dir: this.cwd })
-        effectiveSessionId = forkResult.session_id
+        try {
+          const forkResult = await forkSession(this.sessionId, { dir: this.cwd })
+          effectiveSessionId = forkResult.session_id
 
-        // Load the forked session's messages and inject them into the engine
-        // so the query resumes from that history
-        const resolved = await resolveSessionFilePath(effectiveSessionId, this.cwd)
-        if (!resolved) {
-          throw new Error(
-            `Forked session file not found: unable to resolve path for session ${effectiveSessionId} in directory ${this.cwd || 'default session storage'}`,
-          )
-        }
-        const entries = await readJSONLFile<JsonlEntry>(resolved.filePath)
-        // Filter to main conversation entries only (no sidechains, no metadata)
-        // and convert to format expected by QueryEngine
-        const messages: unknown[] = entries
-          .filter(entry => {
-            if (entry.isSidechain) return false
-            // Only include user and assistant messages (not metadata like custom-title, tag)
-            return entry.type === 'user' || entry.type === 'assistant'
-          })
-          .map(entry => ({
-            // Preserve all fields from the entry (type, uuid, parentUuid, timestamp, message, etc.)
-            ...entry,
-          }))
+          // Load the forked session's messages and inject them into the engine
+          // so the query resumes from that history
+          const resolved = await resolveSessionFilePath(effectiveSessionId, this.cwd)
+          if (!resolved) {
+            // Forked session file not found - start fresh
+            console.log(`[sdk] Forked session file not found for ${effectiveSessionId}, starting fresh session`)
+            effectiveSessionId = undefined
+          } else {
+            const entries = await readJSONLFile<JsonlEntry>(resolved.filePath)
+            // Filter to main conversation entries only (no sidechains, no metadata)
+            // and convert to format expected by QueryEngine
+            const messages: unknown[] = entries
+              .filter(entry => {
+                if (entry.isSidechain) return false
+                // Only include user and assistant messages (not metadata like custom-title, tag)
+                return entry.type === 'user' || entry.type === 'assistant'
+              })
+              .map(entry => ({
+                // Preserve all fields from the entry (type, uuid, parentUuid, timestamp, message, etc.)
+                ...entry,
+              }))
 
-        // Inject messages into the engine so it resumes from fork history
-        if (messages.length > 0) {
-          // Cast to Message[] for injectMessages - entries from JSONL files
-          // contain the expected fields (type, uuid, message, etc.)
-          this.engine.injectMessages(messages as Parameters<QueryEngine['injectMessages']>[0])
+            // Inject messages into the engine so it resumes from fork history
+            if (messages.length > 0) {
+              // Cast to Message[] for injectMessages - entries from JSONL files
+              // contain the expected fields (type, uuid, message, etc.)
+              this.engine.injectMessages(messages as Parameters<QueryEngine['injectMessages']>[0])
+            }
+          }
+        } catch (forkError) {
+          // Session not found or other fork error - just start fresh
+          console.log(`[sdk] Fork failed: ${forkError}. Starting fresh session instead of resuming ${this.sessionId}`)
+          effectiveSessionId = undefined
         }
       }
 
