@@ -9,9 +9,97 @@ export class AbortError extends Error {
   override readonly name: 'AbortError'
 }
 
+export class ClaudeError extends Error {
+  constructor(message: string)
+}
+
+export class SDKAuthenticationError extends ClaudeError {
+  constructor(message?: string)
+}
+
+export class SDKBillingError extends ClaudeError {
+  constructor(message?: string)
+}
+
+export class SDKRateLimitError extends ClaudeError {
+  constructor(
+    message?: string,
+    readonly resetsAt?: number,
+    readonly rateLimitType?: string,
+  )
+}
+
+export class SDKInvalidRequestError extends ClaudeError {
+  constructor(message?: string)
+}
+
+export class SDKServerError extends ClaudeError {
+  constructor(message?: string)
+}
+
+export class SDKMaxOutputTokensError extends ClaudeError {
+  constructor(message?: string)
+}
+
+export type SDKAssistantMessageError =
+  | 'authentication_failed'
+  | 'billing_error'
+  | 'rate_limit'
+  | 'invalid_request'
+  | 'server_error'
+  | 'unknown'
+  | 'max_output_tokens'
+
+export function sdkErrorFromType(
+  errorType: SDKAssistantMessageError,
+  message?: string,
+): ClaudeError
+
 // ============================================================================
 // Types
 // ============================================================================
+
+export type ApiKeySource = 'user' | 'project' | 'org' | 'temporary' | 'oauth'
+
+export type RewindFilesResult = {
+  canRewind: boolean
+  error?: string
+  filesChanged?: string[]
+  insertions?: number
+  deletions?: number
+}
+
+export type McpServerStatus = {
+  name: string
+  status: 'connected' | 'failed' | 'needs-auth' | 'pending' | 'disabled'
+  serverInfo?: { name: string; version: string }
+  error?: string
+  tools?: {
+    name: string
+    description?: string
+    annotations?: {
+      readOnly?: boolean
+      destructive?: boolean
+      openWorld?: boolean
+    }
+  }[]
+}
+
+export type PermissionResult =
+  | {
+      behavior: 'allow'
+      updatedInput?: Record<string, unknown>
+      updatedPermissions?: unknown[]
+      toolUseID?: string
+      decisionClassification?: 'user_temporary' | 'user_permanent' | 'user_reject'
+    }
+  | {
+      behavior: 'deny'
+      message: string
+      interrupt?: boolean
+      toolUseID?: string
+      decisionClassification?: 'user_temporary' | 'user_permanent' | 'user_reject'
+    }
 
 export type SDKSessionInfo = {
   session_id: string
@@ -140,6 +228,16 @@ export interface Query {
   [Symbol.asyncIterator](): AsyncIterator<SDKMessage>
   setModel(model: string): Promise<void>
   setPermissionMode(mode: QueryPermissionMode): Promise<void>
+  close(): void
+  interrupt(): void
+  respondToPermission(toolUseId: string, decision: PermissionResult): void
+  rewindFiles(): RewindFilesResult
+  supportedCommands(): string[]
+  supportedModels(): string[]
+  supportedAgents(): string[]
+  mcpServerStatus(): McpServerStatus[]
+  accountInfo(): Promise<{ apiKeySource: ApiKeySource; [key: string]: unknown }>
+  setMaxThinkingTokens(tokens: number): void
 }
 
 // ============================================================================
@@ -212,6 +310,11 @@ export function forkSession(
   sessionId: string,
   options?: ForkSessionOptions,
 ): Promise<ForkSessionResult>
+
+export function deleteSession(
+  sessionId: string,
+  options?: SessionMutationOptions,
+): Promise<void>
 
 // ============================================================================
 // Query functions
