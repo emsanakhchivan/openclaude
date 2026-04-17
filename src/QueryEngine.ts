@@ -1192,6 +1192,14 @@ export class QueryEngine {
     this.config.agents = agents
   }
 
+  /**
+   * Update the engine's tool list dynamically.
+   * Used by SDK setPermissionMode to refresh tools when permission mode changes.
+   */
+  updateTools(tools: Tools): void {
+    this.config.tools = tools
+  }
+
   getReadFileState(): FileStateCache {
     return this.readFileState
   }
