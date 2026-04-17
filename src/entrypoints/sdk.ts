@@ -39,6 +39,7 @@ import {
 } from '../utils/sessionStoragePortable.js'
 import { readJSONLFile } from '../utils/json.js'
 import { setCwd } from '../utils/Shell.js'
+import { setOriginalCwd } from '../bootstrap/state.js'
 import type {
   RewindFilesResult,
   McpServerStatus,
@@ -1261,6 +1262,9 @@ export function query(params: {
 
   // Set up cwd immediately (synchronous)
   setCwd(cwd)
+  // Also set originalCwd for session storage - getTranscriptPath() uses getOriginalCwd()
+  // Without this, sessions would be saved to wrong directory (Electron app's cwd, not user's cwd)
+  setOriginalCwd(cwd)
 
   // Build permission context
   const permissionContext = buildPermissionContext(options)
@@ -1493,6 +1497,9 @@ function createEngineFromOptions(
   }
 
   setCwd(cwd)
+  // Also set originalCwd for session storage - getTranscriptPath() uses getOriginalCwd()
+  // Without this, sessions would be saved to wrong directory
+  setOriginalCwd(cwd)
 
   // Build permission context
   const permissionContext = buildPermissionContext({
