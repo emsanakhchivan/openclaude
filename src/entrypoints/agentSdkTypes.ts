@@ -253,6 +253,10 @@ export async function connectRemoteControl(
 }
 
 // add exit reason types for removing the error within gracefulShutdown file
-export type ExitReason = {
-
-}
+export type ExitReason =
+  | 'clear'
+  | 'resume'
+  | 'logout'
+  | 'prompt_input_exit'
+  | 'other'
+  | 'bypass_permissions_disabled'
