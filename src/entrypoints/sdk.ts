@@ -947,6 +947,13 @@ class QueryImpl implements Query {
         for (const [key, value] of Object.entries(this.envOverrides)) {
           process.env[key] = value
         }
+        console.log(`[sdk] Applied ${Object.keys(this.envOverrides).length} env overrides. Key env vars:`)
+        console.log(`[sdk]   CLAUDE_CODE_USE_OPENAI=${process.env.CLAUDE_CODE_USE_OPENAI}`)
+        console.log(`[sdk]   OPENAI_BASE_URL=${process.env.OPENAI_BASE_URL}`)
+        console.log(`[sdk]   OPENAI_API_KEY=${process.env.OPENAI_API_KEY ? 'SET' : 'NOT SET'}`)
+        console.log(`[sdk]   OPENAI_MODEL=${process.env.OPENAI_MODEL}`)
+      } else {
+        console.log(`[sdk] WARNING: No env overrides provided. envOverrides=${!!this.envOverrides}`)
       }
 
       // Handle continue: if continue=true and no sessionId, find last session for cwd
