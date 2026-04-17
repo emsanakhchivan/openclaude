@@ -46,6 +46,9 @@ import type {
   McpServerStatus,
   ApiKeySource,
   PermissionResult,
+  SDKMessage as GeneratedSDKMessage,
+  SDKUserMessage as GeneratedSDKUserMessage,
+  SDKResultMessage as GeneratedSDKResultMessage,
 } from './sdk/coreTypes.generated.js'
 import {
   AbortError,
@@ -83,39 +86,15 @@ function assertValidSessionId(sessionId: string): void {
 
 /**
  * A message emitted by the query engine during a conversation.
- *
- * This is a simplified representation for the SDK; the full union type is
- * defined in the Zod schemas (coreSchemas.ts). Until the generated types
- * file is populated, we define the essential shape here.
- *
- * TODO: Replace with the full generated type from coreTypes.generated.ts
- *       once type generation is wired up.
+ * Re-exports the full generated type from coreTypes.generated.ts.
  */
-export type SDKMessage = {
-  type: string
-  [key: string]: unknown
-}
+export type SDKMessage = GeneratedSDKMessage
 
 /**
  * A user message fed into query() via AsyncIterable.
- *
- * Matches the SDKUserMessage Zod schema shape:
- * { type: 'user', message: string | ContentBlock[], ... }
- *
- * TODO: Replace with the full generated type from coreTypes.generated.ts
- *       once type generation is wired up.
+ * Re-exports the full generated type from coreTypes.generated.ts.
  */
-export type SDKUserMessage = {
-  type: 'user'
-  message: string | Array<{ type: string; text?: string; [key: string]: unknown }>
-  parent_tool_use_id?: string | null
-  isSynthetic?: boolean
-  tool_use_result?: unknown
-  priority?: 'now' | 'next' | 'later'
-  timestamp?: string
-  uuid?: string
-  session_id?: string
-}
+export type SDKUserMessage = GeneratedSDKUserMessage
 
 /**
  * Session metadata returned by listSessions and getSessionInfo.
@@ -1426,23 +1405,9 @@ export interface SDKSession {
 /**
  * An SDKResultMessage is the final message emitted by a query turn,
  * containing the result text, usage stats, and cost information.
- *
- * TODO: Replace with the full generated type from coreTypes.generated.ts
- *       once type generation is wired up.
+ * Re-exports the full generated type from coreTypes.generated.ts.
  */
-export type SDKResultMessage = SDKMessage & {
-  type: 'result'
-  subtype: string
-  is_error: boolean
-  duration_ms: number
-  duration_api_ms: number
-  num_turns: number
-  result: string
-  stop_reason: string | null
-  session_id: string
-  total_cost_usd: number
-  uuid: string
-}
+export type SDKResultMessage = GeneratedSDKResultMessage
 
 // ============================================================================
 // SdkMcpToolDefinition — tool() return type
