@@ -1081,6 +1081,9 @@ class QueryImpl implements Query {
       ...prev,
       toolPermissionContext: newPermissionContext,
     }))
+    // Refresh the engine's tool list to reflect new permissions
+    const updatedTools = getTools(newPermissionContext)
+    this.engine.updateTools(updatedTools)
   }
 
   close(): void {
