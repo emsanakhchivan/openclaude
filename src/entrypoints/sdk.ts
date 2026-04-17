@@ -638,6 +638,8 @@ export type QueryOptions = {
   sessionId?: string
   /** Fork the session before resuming (requires sessionId). */
   fork?: boolean
+  /** Resume the most recent session for this cwd (no sessionId needed). */
+  continue?: boolean
   /** Resume strategy. */
   resume?: string
   /** Permission mode for tool access. */
@@ -886,6 +888,7 @@ class QueryImpl implements Query {
   private envSnapshot: Record<string, string | undefined>
   private sessionId?: string
   private shouldFork?: boolean
+  private continueSession?: boolean
   private cwd: string
 
   constructor(
@@ -896,6 +899,7 @@ class QueryImpl implements Query {
     envSnapshot: Record<string, string | undefined> = {},
     sessionId?: string,
     fork?: boolean,
+    continueSession?: boolean,
     cwd: string = '',
   ) {
     this.engine = engine
@@ -905,6 +909,7 @@ class QueryImpl implements Query {
     this.envSnapshot = envSnapshot
     this.sessionId = sessionId
     this.shouldFork = fork
+    this.continueSession = continueSession
     this.cwd = cwd
   }
 
@@ -929,8 +934,16 @@ class QueryImpl implements Query {
       // Ensure init() completes before any query runs
       await init()
 
-      // Handle fork: if sessionId and fork=true, fork the session first
+      // Handle continue: if continue=true and no sessionId, find last session for cwd
       let effectiveSessionId = this.sessionId
+      if (this.continueSession && !this.sessionId) {
+        const sessions = await listSessions({ dir: this.cwd, limit: 1 })
+        if (sessions.length > 0) {
+          effectiveSessionId = sessions[0].session_id
+        }
+      }
+
+      // Handle fork: if sessionId and fork=true, fork the session first
       if (this.sessionId && this.shouldFork) {
         const forkResult = await forkSession(this.sessionId, { dir: this.cwd })
         effectiveSessionId = forkResult.session_id
@@ -1262,8 +1275,8 @@ export function query(params: {
 
   // Create the Query wrapper first so we can wire canUseTool to its
   // pending permission map. Pass envSnapshot for restoration after query completes.
-  // Also pass sessionId, fork, and cwd for fork handling in the iterator.
-  const queryImpl = new QueryImpl(null as any, prompt, ac, appStateStore, envSnapshot, options.sessionId, options.fork, cwd)
+  // Also pass sessionId, fork, continue, and cwd for session handling in the iterator.
+  const queryImpl = new QueryImpl(null as any, prompt, ac, appStateStore, envSnapshot, options.sessionId, options.fork, options.continue, cwd)
 
   // Build the canUseTool that supports external permission resolution.
   // When no user canUseTool callback is provided, this creates a pending
