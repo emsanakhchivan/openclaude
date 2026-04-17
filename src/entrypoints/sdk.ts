@@ -1472,6 +1472,7 @@ class SDKSessionImpl implements SDKSession {
   private _sessionId: string
   private options: SDKSessionOptions
   private appStateStore: Store<AppState>
+  private agentsLoaded = false
 
   constructor(
     engine: QueryEngine,
@@ -1492,21 +1493,22 @@ class SDKSessionImpl implements SDKSession {
   async *sendMessage(content: string): AsyncIterable<SDKMessage> {
     await init()
 
-    // Load agent definitions for subagent support
-    let agentDefs = { activeAgents: [], allAgents: [] }
-    try {
-      agentDefs = await getAgentDefinitionsWithOverrides(this.options.cwd)
-      console.log(`[sdk] sendMessage: Loaded ${agentDefs.activeAgents.length} agents`)
-      this.appStateStore.setState(prev => ({
-        ...prev,
-        agentDefinitions: agentDefs,
-      }))
-      // Inject agents into engine for AgentTool
-      if (agentDefs.activeAgents.length > 0) {
-        this.engine.injectAgents(agentDefs.activeAgents)
+    // Load agent definitions once (not on every sendMessage call)
+    if (!this.agentsLoaded) {
+      try {
+        const agentDefs = await getAgentDefinitionsWithOverrides(this.options.cwd)
+        console.log(`[sdk] sendMessage: Loaded ${agentDefs.activeAgents.length} agents`)
+        this.appStateStore.setState(prev => ({
+          ...prev,
+          agentDefinitions: agentDefs,
+        }))
+        if (agentDefs.activeAgents.length > 0) {
+          this.engine.injectAgents(agentDefs.activeAgents)
+        }
+      } catch (err) {
+        console.log(`[sdk] Failed to load agents:`, err)
       }
-    } catch (err) {
-      console.log(`[sdk] Failed to load agents:`, err)
+      this.agentsLoaded = true
     }
 
     yield* this.engine.submitMessage(content)
