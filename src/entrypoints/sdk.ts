@@ -885,7 +885,8 @@ class QueryImpl implements Query {
   private pendingPermissionPrompts = new Map<string, {
     resolve: (decision: { behavior: 'allow'; updatedInput?: any } | { behavior: 'deny'; message: string; decisionReason: { type: 'mode'; mode: string } }) => void
   }>()
-  private envSnapshot: Record<string, string | undefined>
+  private envOverrides: Record<string, string> | undefined
+  private envSnapshot: Record<string, string | undefined> | undefined
   private sessionId?: string
   private shouldFork?: boolean
   private continueSession?: boolean
@@ -896,7 +897,7 @@ class QueryImpl implements Query {
     prompt: string | AsyncIterable<SDKUserMessage>,
     abortController: AbortController,
     appStateStore: Store<AppState>,
-    envSnapshot: Record<string, string | undefined> = {},
+    envOverrides: Record<string, string> | undefined,
     sessionId?: string,
     fork?: boolean,
     continueSession?: boolean,
@@ -906,7 +907,7 @@ class QueryImpl implements Query {
     this.prompt = prompt
     this.abortController = abortController
     this.appStateStore = appStateStore
-    this.envSnapshot = envSnapshot
+    this.envOverrides = envOverrides
     this.sessionId = sessionId
     this.shouldFork = fork
     this.continueSession = continueSession
@@ -932,7 +933,21 @@ class QueryImpl implements Query {
   async *[Symbol.asyncIterator](): AsyncIterator<SDKMessage> {
     try {
       // Ensure init() completes before any query runs
+      // init() applies config env vars, so we apply our overrides AFTER
       await init()
+
+      // Apply env overrides AFTER init() so they override config file env vars
+      if (this.envOverrides && Object.keys(this.envOverrides).length > 0) {
+        // Snapshot existing values for keys we'll override
+        this.envSnapshot = {}
+        for (const key of Object.keys(this.envOverrides)) {
+          this.envSnapshot[key] = process.env[key]
+        }
+        // Apply overrides
+        for (const [key, value] of Object.entries(this.envOverrides)) {
+          process.env[key] = value
+        }
+      }
 
       // Handle continue: if continue=true and no sessionId, find last session for cwd
       let effectiveSessionId = this.sessionId
@@ -994,12 +1009,14 @@ class QueryImpl implements Query {
       }
     } finally {
       // Restore environment variables to snapshot state
-      for (const key of Object.keys(this.envSnapshot)) {
-        const originalValue = this.envSnapshot[key]
-        if (originalValue === undefined) {
-          delete process.env[key]
-        } else {
-          process.env[key] = originalValue
+      if (this.envSnapshot) {
+        for (const key of Object.keys(this.envSnapshot)) {
+          const originalValue = this.envSnapshot[key]
+          if (originalValue === undefined) {
+            delete process.env[key]
+          } else {
+            process.env[key] = originalValue
+          }
         }
       }
     }
@@ -1209,19 +1226,10 @@ export function query(params: {
     throw new Error('query() requires options.cwd')
   }
 
-  // Handle env overrides with snapshot/restore pattern
+  // Note: We pass settings?.env to QueryImpl for application AFTER init() runs.
+  // This ensures our env vars override config file env vars, not vice versa.
+  // init() calls applyConfigEnvironmentVariables() which would override pre-applied env.
   const envOverrides = settings?.env
-  const envSnapshot: Record<string, string | undefined> = {}
-  if (envOverrides && Object.keys(envOverrides).length > 0) {
-    // Snapshot existing values for keys we'll override
-    for (const key of Object.keys(envOverrides)) {
-      envSnapshot[key] = process.env[key]
-    }
-    // Apply overrides
-    for (const [key, value] of Object.entries(envOverrides)) {
-      process.env[key] = value
-    }
-  }
 
   // Ensure init() has been called (memoized, safe to call multiple times).
   // We fire-and-forget the init promise — QueryEngine.submitMessage() will
@@ -1274,9 +1282,9 @@ export function query(params: {
   const ac = abortController ?? new AbortController()
 
   // Create the Query wrapper first so we can wire canUseTool to its
-  // pending permission map. Pass envSnapshot for restoration after query completes.
+  // pending permission map. Pass envOverrides for application AFTER init().
   // Also pass sessionId, fork, continue, and cwd for session handling in the iterator.
-  const queryImpl = new QueryImpl(null as any, prompt, ac, appStateStore, envSnapshot, options.sessionId, options.fork, options.continue, cwd)
+  const queryImpl = new QueryImpl(null as any, prompt, ac, appStateStore, envOverrides, options.sessionId, options.fork, options.continue, cwd)
 
   // Build the canUseTool that supports external permission resolution.
   // When no user canUseTool callback is provided, this creates a pending
