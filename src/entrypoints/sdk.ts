@@ -938,17 +938,26 @@ class QueryImpl implements Query {
       // init() applies config env vars, so we apply our overrides AFTER
       await init()
 
-      // Load agent definitions from .claude/agents directory
-      // Required for subagent support - AgentTool uses agentDefinitions.activeAgents
+      // Load agent definitions BEFORE creating engine context
+      // QueryEngine uses config.agents for toolUseContext.options.agentDefinitions
+      let agentDefs = { activeAgents: [], allAgents: [] }
       try {
-        const agentDefs = await getAgentDefinitionsWithOverrides(this.cwd)
-        this.appStateStore.setState(prev => ({
-          ...prev,
-          agentDefinitions: agentDefs,
-        }))
+        agentDefs = await getAgentDefinitionsWithOverrides(this.cwd)
+        console.log(`[sdk] Loaded ${agentDefs.activeAgents.length} agents: ${agentDefs.activeAgents.map(a => a.agentType).join(', ')}`)
       } catch (err) {
         console.log(`[sdk] Failed to load agents:`, err)
-        // Continue without agents - some tools may fail but basic queries work
+      }
+
+      // Update AppState with agents (for UI/SDK methods like supportedAgents())
+      this.appStateStore.setState(prev => ({
+        ...prev,
+        agentDefinitions: agentDefs,
+      }))
+
+      // Inject agents into the engine so AgentTool can use them
+      // QueryEngine's submitMessage reads from config.agents for toolUseContext
+      if (agentDefs.activeAgents.length > 0) {
+        this.engine.injectAgents(agentDefs.activeAgents)
       }
 
       // Apply env overrides AFTER init() so they override config file env vars
@@ -1481,12 +1490,18 @@ class SDKSessionImpl implements SDKSession {
     await init()
 
     // Load agent definitions for subagent support
+    let agentDefs = { activeAgents: [], allAgents: [] }
     try {
-      const agentDefs = await getAgentDefinitionsWithOverrides(this.options.cwd)
+      agentDefs = await getAgentDefinitionsWithOverrides(this.options.cwd)
+      console.log(`[sdk] sendMessage: Loaded ${agentDefs.activeAgents.length} agents`)
       this.appStateStore.setState(prev => ({
         ...prev,
         agentDefinitions: agentDefs,
       }))
+      // Inject agents into engine for AgentTool
+      if (agentDefs.activeAgents.length > 0) {
+        this.engine.injectAgents(agentDefs.activeAgents)
+      }
     } catch (err) {
       console.log(`[sdk] Failed to load agents:`, err)
     }

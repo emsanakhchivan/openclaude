@@ -1184,6 +1184,14 @@ export class QueryEngine {
     this.mutableMessages.push(...messages)
   }
 
+  /**
+   * Inject agent definitions into the engine's config.
+   * Used by SDK to load agents after engine creation (async loading).
+   */
+  injectAgents(agents: AgentDefinition[]): void {
+    this.config.agents = agents
+  }
+
   getReadFileState(): FileStateCache {
     return this.readFileState
   }
