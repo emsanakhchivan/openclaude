@@ -885,7 +885,7 @@ class QueryImpl implements Query {
   }>()
   private envSnapshot: Record<string, string | undefined>
   private sessionId?: string
-  private forkSession?: boolean
+  private shouldFork?: boolean
   private cwd: string
 
   constructor(
@@ -904,7 +904,7 @@ class QueryImpl implements Query {
     this.appStateStore = appStateStore
     this.envSnapshot = envSnapshot
     this.sessionId = sessionId
-    this.forkSession = fork
+    this.shouldFork = fork
     this.cwd = cwd
   }
 
@@ -931,32 +931,37 @@ class QueryImpl implements Query {
 
       // Handle fork: if sessionId and fork=true, fork the session first
       let effectiveSessionId = this.sessionId
-      if (this.sessionId && this.forkSession) {
+      if (this.sessionId && this.shouldFork) {
         const forkResult = await forkSession(this.sessionId, { dir: this.cwd })
         effectiveSessionId = forkResult.session_id
 
         // Load the forked session's messages and inject them into the engine
         // so the query resumes from that history
         const resolved = await resolveSessionFilePath(effectiveSessionId, this.cwd)
-        if (resolved) {
-          const entries = await readJSONLFile<JsonlEntry>(resolved.filePath)
-          // Filter to main conversation entries only (no sidechains, no metadata)
-          // and convert to Message format expected by QueryEngine
-          const messages: any[] = entries
-            .filter(entry => {
-              if (entry.isSidechain) return false
-              // Only include user and assistant messages (not metadata like custom-title, tag)
-              return entry.type === 'user' || entry.type === 'assistant'
-            })
-            .map(entry => ({
-              // Preserve all fields from the entry (type, uuid, parentUuid, timestamp, message, etc.)
-              ...entry,
-            }))
+        if (!resolved) {
+          throw new Error(
+            `Forked session file not found: unable to resolve path for session ${effectiveSessionId} in directory ${this.cwd || 'default session storage'}`,
+          )
+        }
+        const entries = await readJSONLFile<JsonlEntry>(resolved.filePath)
+        // Filter to main conversation entries only (no sidechains, no metadata)
+        // and convert to format expected by QueryEngine
+        const messages: unknown[] = entries
+          .filter(entry => {
+            if (entry.isSidechain) return false
+            // Only include user and assistant messages (not metadata like custom-title, tag)
+            return entry.type === 'user' || entry.type === 'assistant'
+          })
+          .map(entry => ({
+            // Preserve all fields from the entry (type, uuid, parentUuid, timestamp, message, etc.)
+            ...entry,
+          }))
 
-          // Inject messages into the engine so it resumes from fork history
-          if (messages.length > 0) {
-            this.engine.injectMessages(messages)
-          }
+        // Inject messages into the engine so it resumes from fork history
+        if (messages.length > 0) {
+          // Cast to Message[] for injectMessages - entries from JSONL files
+          // contain the expected fields (type, uuid, message, etc.)
+          this.engine.injectMessages(messages as Parameters<QueryEngine['injectMessages']>[0])
         }
       }
 
