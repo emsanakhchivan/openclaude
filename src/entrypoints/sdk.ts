@@ -1634,27 +1634,46 @@ export function unstable_v2_createSession(options: SDKSessionOptions): SDKSessio
 /**
  * V2 API - UNSTABLE
  * Resume an existing session by ID. Loads the session's prior messages
- * from disk and replays them into the QueryEngine so the conversation
+ * from disk and passes them to the QueryEngine so the conversation
  * continues from where it left off.
  *
  * @alpha
  *
  * @param sessionId - UUID of the session to resume
  * @param options - Session options (cwd is required)
+ * @returns SDKSession with prior conversation history loaded
+ *
+ * @example
+ * ```typescript
+ * const session = await unstable_v2_resumeSession(sessionId, { cwd: '/my/project' })
+ * for await (const msg of session.sendMessage('Continue where we left off')) {
+ *   console.log(msg)
+ * }
+ * ```
  */
-export function unstable_v2_resumeSession(
+export async function unstable_v2_resumeSession(
   sessionId: string,
   options: SDKSessionOptions,
-): SDKSession {
+): Promise<SDKSession> {
   assertValidSessionId(sessionId)
 
-  // Load existing session messages synchronously — we construct the engine
-  // with initialMessages so the conversation history is available.
-  // NOTE: This is synchronous construction. The actual message loading from
-  // disk would need to be done before calling resumeSession and passed in
-  // via a future API extension. For now, we create a fresh engine and the
-  // caller is responsible for re-sending context.
-  const { engine, appStateStore } = createEngineFromOptions(options)
+  // Load prior messages from the session's JSONL transcript
+  const priorMessages = await getSessionMessages(sessionId, {
+    dir: options.cwd,
+    includeSystemMessages: false,
+  })
+
+  // Convert SessionMessage[] to the format QueryEngine expects
+  const initialMessages = priorMessages.map((msg): Record<string, unknown> => ({
+    role: msg.role,
+    content: msg.content,
+    ...(msg as Record<string, unknown>),
+  }))
+
+  const { engine, appStateStore } = createEngineFromOptions(
+    options,
+    initialMessages as any[],
+  )
   return new SDKSessionImpl(engine, sessionId, options, appStateStore)
 }
 
