@@ -1185,21 +1185,22 @@ class QueryImpl implements Query {
 /**
  * Extract a prompt from an SDKUserMessage.
  *
- * SDKUserMessage has a `message` field that can be a string or an array of
- * content blocks. QueryEngine.submitMessage() accepts both `string` and
- * `ContentBlockParam[]`, so we pass through directly when possible.
+ * SDKUserMessage.message is always an object: { role: "user", content: string | Array<unknown> }
+ * per coreTypes.generated.ts. QueryEngine.submitMessage() accepts both `string` and
+ * `ContentBlockParam[]`, so we extract message.content and pass through directly.
  */
 function extractPromptFromUserMessage(
   msg: SDKUserMessage,
 ): string | Array<{ type: string; text?: string; [key: string]: unknown }> {
   const { message } = msg
-  if (typeof message === 'string') {
-    return message
+  // message is always { role: "user", content: string | Array<unknown> }
+  if (typeof message.content === 'string') {
+    return message.content
   }
-  if (Array.isArray(message)) {
-    return message
+  if (Array.isArray(message.content)) {
+    return message.content as Array<{ type: string; text?: string; [key: string]: unknown }>
   }
-  return String(message ?? '')
+  return String(message.content ?? '')
 }
 
 // ============================================================================
