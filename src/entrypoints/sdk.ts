@@ -934,6 +934,30 @@ class QueryImpl implements Query {
       if (this.sessionId && this.forkSession) {
         const forkResult = await forkSession(this.sessionId, { dir: this.cwd })
         effectiveSessionId = forkResult.session_id
+
+        // Load the forked session's messages and inject them into the engine
+        // so the query resumes from that history
+        const resolved = await resolveSessionFilePath(effectiveSessionId, this.cwd)
+        if (resolved) {
+          const entries = await readJSONLFile<JsonlEntry>(resolved.filePath)
+          // Filter to main conversation entries only (no sidechains, no metadata)
+          // and convert to Message format expected by QueryEngine
+          const messages: any[] = entries
+            .filter(entry => {
+              if (entry.isSidechain) return false
+              // Only include user and assistant messages (not metadata like custom-title, tag)
+              return entry.type === 'user' || entry.type === 'assistant'
+            })
+            .map(entry => ({
+              // Preserve all fields from the entry (type, uuid, parentUuid, timestamp, message, etc.)
+              ...entry,
+            }))
+
+          // Inject messages into the engine so it resumes from fork history
+          if (messages.length > 0) {
+            this.engine.injectMessages(messages)
+          }
+        }
       }
 
       if (typeof this.prompt === 'string') {
