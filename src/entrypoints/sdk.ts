@@ -636,6 +636,8 @@ export type QueryOptions = {
   model?: string
   /** Resume an existing session by ID. */
   sessionId?: string
+  /** Fork the session before resuming (requires sessionId). */
+  fork?: boolean
   /** Resume strategy. */
   resume?: string
   /** Permission mode for tool access. */
@@ -882,6 +884,9 @@ class QueryImpl implements Query {
     resolve: (decision: { behavior: 'allow'; updatedInput?: any } | { behavior: 'deny'; message: string; decisionReason: { type: 'mode'; mode: string } }) => void
   }>()
   private envSnapshot: Record<string, string | undefined>
+  private sessionId?: string
+  private forkSession?: boolean
+  private cwd: string
 
   constructor(
     engine: QueryEngine,
@@ -889,12 +894,18 @@ class QueryImpl implements Query {
     abortController: AbortController,
     appStateStore: Store<AppState>,
     envSnapshot: Record<string, string | undefined> = {},
+    sessionId?: string,
+    fork?: boolean,
+    cwd: string = '',
   ) {
     this.engine = engine
     this.prompt = prompt
     this.abortController = abortController
     this.appStateStore = appStateStore
     this.envSnapshot = envSnapshot
+    this.sessionId = sessionId
+    this.forkSession = fork
+    this.cwd = cwd
   }
 
   /** Late-bind the engine (used by query() which creates QueryImpl before the engine). */
@@ -917,6 +928,13 @@ class QueryImpl implements Query {
     try {
       // Ensure init() completes before any query runs
       await init()
+
+      // Handle fork: if sessionId and fork=true, fork the session first
+      let effectiveSessionId = this.sessionId
+      if (this.sessionId && this.forkSession) {
+        const forkResult = await forkSession(this.sessionId, { dir: this.cwd })
+        effectiveSessionId = forkResult.session_id
+      }
 
       if (typeof this.prompt === 'string') {
         // Single string prompt — submit once and yield all results
@@ -1215,7 +1233,8 @@ export function query(params: {
 
   // Create the Query wrapper first so we can wire canUseTool to its
   // pending permission map. Pass envSnapshot for restoration after query completes.
-  const queryImpl = new QueryImpl(null as any, prompt, ac, appStateStore, envSnapshot)
+  // Also pass sessionId, fork, and cwd for fork handling in the iterator.
+  const queryImpl = new QueryImpl(null as any, prompt, ac, appStateStore, envSnapshot, options.sessionId, options.fork, cwd)
 
   // Build the canUseTool that supports external permission resolution.
   // When no user canUseTool callback is provided, this creates a pending
