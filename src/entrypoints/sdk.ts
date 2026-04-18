@@ -1527,6 +1527,13 @@ function createEngineFromOptions(
   }
   const appStateStore = createStore<AppState>(stateWithPermissions)
 
+  // Build thinkingConfig from initial state
+  const thinkingConfig = stateWithPermissions.thinkingEnabled !== false
+    ? (stateWithPermissions.thinkingBudgetTokens
+      ? { type: 'enabled' as const, budgetTokens: stateWithPermissions.thinkingBudgetTokens }
+      : { type: 'adaptive' as const })
+    : { type: 'disabled' as const }
+
   // Get tools filtered by permission context
   const tools = getTools(permissionContext)
 
@@ -1558,6 +1565,7 @@ function createEngineFromOptions(
     readFileCache,
     userSpecifiedModel: model,
     abortController: ac,
+    thinkingConfig,
     ...(initialMessages ? { initialMessages } : {}),
   }
 
