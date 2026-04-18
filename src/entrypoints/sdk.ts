@@ -39,7 +39,12 @@ import {
 } from '../utils/sessionStoragePortable.js'
 import { readJSONLFile } from '../utils/json.js'
 import { setCwd } from '../utils/Shell.js'
-import { setOriginalCwd } from '../bootstrap/state.js'
+import {
+  setOriginalCwd,
+  getCwdState,
+  getOriginalCwd,
+  setCwdState,
+} from '../bootstrap/state.js'
 import { getAgentDefinitionsWithOverrides } from '../tools/AgentTool/loadAgentsDir.js'
 import type {
   RewindFilesResult,
@@ -109,6 +114,36 @@ function releaseEnvMutex(): void {
     if (next) next()
   } else {
     envMutationLocked = false
+  }
+}
+
+// ============================================================================
+// Cwd mutex for parallel session safety
+// ============================================================================
+
+/**
+ * Global mutex for global cwd state mutations (STATE.cwd, STATE.originalCwd).
+ * Prevents concurrent SDK sessions from overwriting each other's working directory.
+ */
+const cwdMutexQueue: Array<() => void> = []
+let cwdMutexLocked = false
+
+function acquireCwdMutex(): Promise<void> {
+  if (!cwdMutexLocked) {
+    cwdMutexLocked = true
+    return Promise.resolve()
+  }
+  return new Promise(resolve => {
+    cwdMutexQueue.push(resolve)
+  })
+}
+
+function releaseCwdMutex(): void {
+  if (cwdMutexQueue.length > 0) {
+    const next = cwdMutexQueue.shift()
+    if (next) next()
+  } else {
+    cwdMutexLocked = false
   }
 }
 
@@ -815,7 +850,7 @@ type PermissionResolveDecision =
 function createExternalCanUseTool(
   userFn: QueryOptions['canUseTool'],
   fallback: CanUseToolFn,
-  queryImpl: QueryImpl,
+  permissionTarget: { registerPendingPermission(toolUseId: string): Promise<PermissionResolveDecision>; pendingPermissionPrompts: Map<string, { resolve: (decision: PermissionResolveDecision) => void }> },
 ): CanUseToolFn {
   return async (tool, input, toolUseContext, assistantMessage, toolUseID, forceDecision) => {
     // If a forced decision was passed in, honor it
@@ -846,7 +881,7 @@ function createExternalCanUseTool(
     // The host can resolve this via respondToPermission() before timeout.
     // If timeout expires (30 seconds), use fallback decision.
     if (toolUseID) {
-      const pendingPromise = queryImpl.registerPendingPermission(toolUseID)
+      const pendingPromise = permissionTarget.registerPendingPermission(toolUseID)
       const timeoutMs = 30000 // 30 second timeout for external permission resolution
 
       // Race between external resolution and timeout
@@ -867,12 +902,12 @@ function createExternalCanUseTool(
 
       if (!raceResult.timedOut && raceResult.result) {
         // External resolution succeeded before timeout
-        queryImpl.pendingPermissionPrompts.delete(toolUseID)
+        permissionTarget.pendingPermissionPrompts.delete(toolUseID)
         return raceResult.result
       }
 
       // Timeout expired — clean up and use fallback
-      queryImpl.pendingPermissionPrompts.delete(toolUseID)
+      permissionTarget.pendingPermissionPrompts.delete(toolUseID)
     }
     return fallback(tool, input, toolUseContext, assistantMessage, toolUseID, forceDecision)
   }
@@ -966,7 +1001,7 @@ class QueryImpl implements Query {
   private abortController: AbortController
   private appStateStore: Store<AppState>
   private pendingPermissionPrompts = new Map<string, {
-    resolve: (decision: { behavior: 'allow'; updatedInput?: any } | { behavior: 'deny'; message: string; decisionReason: { type: 'mode'; mode: string } }) => void
+    resolve: (decision: PermissionResolveDecision) => void
   }>()
   private envOverrides: Record<string, string> | undefined
   private envSnapshot: Record<string, string | undefined> | undefined
@@ -1007,13 +1042,21 @@ class QueryImpl implements Query {
    * Returns a Promise that resolves when respondToPermission() is called
    * with the matching toolUseId.
    */
-  registerPendingPermission(toolUseId: string): Promise<{ behavior: 'allow'; updatedInput?: any } | { behavior: 'deny'; message: string; decisionReason: { type: 'mode'; mode: string } }> {
+  registerPendingPermission(toolUseId: string): Promise<PermissionResolveDecision> {
     return new Promise(resolve => {
       this.pendingPermissionPrompts.set(toolUseId, { resolve })
     })
   }
 
   async *[Symbol.asyncIterator](): AsyncIterator<SDKMessage> {
+    // Acquire cwd mutex for the entire query lifetime to prevent concurrent
+    // sessions from corrupting each other's working directory.
+    await acquireCwdMutex()
+    const savedCwd = getCwdState()
+    const savedOriginalCwd = getOriginalCwd()
+    setCwd(this.cwd)
+    setOriginalCwd(this.cwd)
+
     try {
       // Ensure init() completes before any query runs
       // init() applies config env vars, so we apply our overrides AFTER
@@ -1123,6 +1166,11 @@ class QueryImpl implements Query {
           releaseEnvMutex()
         }
       }
+
+      // Restore cwd state and release mutex
+      setCwdState(savedCwd)
+      setOriginalCwd(savedOriginalCwd)
+      releaseCwdMutex()
     }
   }
 
@@ -1412,11 +1460,9 @@ export function query(params: {
   // Query synchronously (not Promise<Query>), so we keep it sync and defer
   // the init to the async iterator.
 
-  // Set up cwd immediately (synchronous)
-  setCwd(cwd)
-  // Also set originalCwd for session storage - getTranscriptPath() uses getOriginalCwd()
-  // Without this, sessions would be saved to wrong directory (Electron app's cwd, not user's cwd)
-  setOriginalCwd(cwd)
+  // NOTE: cwd is NOT set on global state here. It is set inside the
+  // async iterator via withSessionCwd() to prevent concurrent sessions
+  // from overwriting each other's working directory.
 
   // Build permission context
   const permissionContext = buildPermissionContext(options)
@@ -1442,7 +1488,6 @@ export function query(params: {
 
   // Build the canUseTool callback
   const defaultCanUseTool = createDefaultCanUseTool(permissionContext)
-  const canUseTool = wrapCanUseTool(options.canUseTool, defaultCanUseTool)
 
   // Determine custom system prompt
   let customSystemPrompt: string | undefined
@@ -1547,6 +1592,12 @@ export interface SDKSession {
   getMessages(): SDKMessage[]
   /** Abort the current in-flight query. */
   interrupt(): void
+  /**
+   * Respond to a pending permission prompt asynchronously.
+   * Use this when no canUseTool callback was provided — the SDK emits a
+   * permission-request message and the host resolves it via this method.
+   */
+  respondToPermission(toolUseId: string, decision: PermissionResult): void
 }
 
 /**
@@ -1585,6 +1636,9 @@ class SDKSessionImpl implements SDKSession {
   private options: SDKSessionOptions
   private appStateStore: Store<AppState>
   private agentsLoaded = false
+  private pendingPermissionPrompts = new Map<string, {
+    resolve: (decision: PermissionResolveDecision) => void
+  }>()
 
   constructor(
     engine: QueryEngine,
@@ -1598,31 +1652,56 @@ class SDKSessionImpl implements SDKSession {
     this.appStateStore = appStateStore
   }
 
+  /** Late-bind the engine (used when session is created before engine). */
+  setEngine(engine: QueryEngine): void {
+    this.engine = engine
+  }
+
+  /** Late-bind the app state store (used when session is created before store). */
+  setAppStateStore(store: Store<AppState>): void {
+    this.appStateStore = store
+  }
+
   get sessionId(): string {
     return this._sessionId
   }
 
   async *sendMessage(content: string): AsyncIterable<SDKMessage> {
-    await init()
+    // Acquire cwd mutex for the duration of this message to prevent
+    // concurrent sessions from overwriting each other's cwd.
+    await acquireCwdMutex()
+    const savedCwd = getCwdState()
+    const savedOriginalCwd = getOriginalCwd()
+    setCwd(this.options.cwd)
+    setOriginalCwd(this.options.cwd)
 
-    // Load agent definitions once (not on every sendMessage call)
-    if (!this.agentsLoaded) {
-      try {
-        const agentDefs = await getAgentDefinitionsWithOverrides(this.options.cwd)
-        this.appStateStore.setState(prev => ({
-          ...prev,
-          agentDefinitions: agentDefs,
-        }))
-        if (agentDefs.activeAgents.length > 0) {
-          this.engine.injectAgents(agentDefs.activeAgents)
+    try {
+      await init()
+
+      // Load agent definitions once (not on every sendMessage call)
+      if (!this.agentsLoaded) {
+        try {
+          const agentDefs = await getAgentDefinitionsWithOverrides(this.options.cwd)
+          this.appStateStore.setState(prev => ({
+            ...prev,
+            agentDefinitions: agentDefs,
+          }))
+          if (agentDefs.activeAgents.length > 0) {
+            this.engine.injectAgents(agentDefs.activeAgents)
+          }
+        } catch {
+          // Agent loading failed — continue without agents
         }
-      } catch {
-        // Agent loading failed — continue without agents
+        this.agentsLoaded = true
       }
-      this.agentsLoaded = true
-    }
 
-    yield* this.engine.submitMessage(content)
+      yield* this.engine.submitMessage(content)
+    } finally {
+      // Restore cwd and release mutex
+      setCwdState(savedCwd)
+      setOriginalCwd(savedOriginalCwd)
+      releaseCwdMutex()
+    }
   }
 
   getMessages(): SDKMessage[] {
@@ -1631,6 +1710,36 @@ class SDKSessionImpl implements SDKSession {
 
   interrupt(): void {
     this.engine.interrupt()
+  }
+
+  /**
+   * Register a pending permission prompt for external resolution.
+   * Returns a Promise that resolves when respondToPermission() is called
+   * with the matching toolUseId.
+   */
+  registerPendingPermission(toolUseId: string): Promise<PermissionResolveDecision> {
+    return new Promise(resolve => {
+      this.pendingPermissionPrompts.set(toolUseId, { resolve })
+    })
+  }
+
+  respondToPermission(toolUseId: string, decision: PermissionResult): void {
+    const pending = this.pendingPermissionPrompts.get(toolUseId)
+    if (!pending) return
+
+    if (decision.behavior === 'allow') {
+      pending.resolve({
+        behavior: 'allow',
+        updatedInput: decision.updatedInput,
+      })
+    } else {
+      pending.resolve({
+        behavior: 'deny',
+        message: decision.message ?? 'Permission denied',
+        decisionReason: { type: 'mode', mode: 'default' },
+      })
+    }
+    this.pendingPermissionPrompts.delete(toolUseId)
   }
 }
 
@@ -1644,6 +1753,7 @@ class SDKSessionImpl implements SDKSession {
  */
 function createEngineFromOptions(
   options: SDKSessionOptions,
+  permissionTarget: { registerPendingPermission(toolUseId: string): Promise<PermissionResolveDecision>; pendingPermissionPrompts: Map<string, { resolve: (decision: PermissionResolveDecision) => void }> },
   initialMessages?: any[],
 ): { engine: QueryEngine; appStateStore: Store<AppState> } {
   const { cwd, model, abortController, permissionMode } = options
@@ -1652,10 +1762,9 @@ function createEngineFromOptions(
     throw new Error('SDKSessionOptions requires cwd')
   }
 
-  setCwd(cwd)
-  // Also set originalCwd for session storage - getTranscriptPath() uses getOriginalCwd()
-  // Without this, sessions would be saved to wrong directory
-  setOriginalCwd(cwd)
+  // NOTE: cwd is NOT set on global state here. SDKSessionImpl.sendMessage()
+  // sets/restores it per-message via the cwd mutex to prevent concurrent
+  // sessions from overwriting each other's working directory.
 
   // Build permission context
   const permissionContext = buildPermissionContext({
@@ -1688,13 +1797,14 @@ function createEngineFromOptions(
   // Create file state cache
   const readFileCache = createFileStateCacheWithSizeLimit(100)
 
-  // Build the canUseTool callback
+  // Build the canUseTool callback with external permission resolution support.
+  // When no user canUseTool callback is provided, this creates a pending
+  // prompt entry that respondToPermission() can resolve asynchronously.
   const defaultCanUseTool = createDefaultCanUseTool(permissionContext)
-  const canUseTool = wrapCanUseTool(
-    options.canUseTool
-      ? (name: string, input: unknown) => options.canUseTool!(name, input)
-      : undefined,
+  const canUseTool = createExternalCanUseTool(
+    options.canUseTool ?? undefined,
     defaultCanUseTool,
+    permissionTarget,
   )
 
   // Abort controller
@@ -1747,8 +1857,15 @@ function createEngineFromOptions(
  */
 export function unstable_v2_createSession(options: SDKSessionOptions): SDKSession {
   const sessionId = randomUUID()
-  const { engine, appStateStore } = createEngineFromOptions(options)
-  return new SDKSessionImpl(engine, sessionId, options, appStateStore)
+  // Create SDKSessionImpl first (without engine) so we can pass its
+  // pendingPermissionPrompts map to createEngineFromOptions for
+  // external permission resolution support.
+  const session = new SDKSessionImpl(null as any, sessionId, options, null as any)
+  const { engine, appStateStore } = createEngineFromOptions(options, session)
+  // Wire the engine and store into the session
+  session.setEngine(engine)
+  session.setAppStateStore(appStateStore)
+  return session
 }
 
 /**
@@ -1802,11 +1919,15 @@ export async function unstable_v2_resumeSession(
     }
   })
 
+  const session = new SDKSessionImpl(null as any, sessionId, options, null as any)
   const { engine, appStateStore } = createEngineFromOptions(
     options,
+    session,
     initialMessages as any[],
   )
-  return new SDKSessionImpl(engine, sessionId, options, appStateStore)
+  session.setEngine(engine)
+  session.setAppStateStore(appStateStore)
+  return session
 }
 
 // @[MODEL LAUNCH]: Update the example model ID in this docstring.

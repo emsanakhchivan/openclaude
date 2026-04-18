@@ -74,6 +74,7 @@ export type McpServerStatus = {
   status: 'connected' | 'failed' | 'needs-auth' | 'pending' | 'disabled'
   serverInfo?: { name: string; version: string }
   error?: string
+  scope?: string
   tools?: {
     name: string
     description?: string
@@ -159,9 +160,9 @@ export type SDKMessage = {
   type: string
   uuid?: string
   message?: unknown
-  parentUuid?: string | null
+  parent_tool_use_id?: string | null
   timestamp?: string
-  sessionId?: string
+  session_id?: string
   [key: string]: unknown
 }
 
@@ -322,6 +323,8 @@ export interface SDKSession {
   sendMessage(content: string): AsyncIterable<SDKMessage>
   getMessages(): SDKMessage[]
   interrupt(): void
+  /** Respond to a pending permission prompt. */
+  respondToPermission(toolUseId: string, decision: PermissionResult): void
 }
 
 // ============================================================================
