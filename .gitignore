@@ -12,3 +12,5 @@ package-lock.json
 coverage/
 .openclaude/
 docs/superpowers/
+*.vsix
+SDK-IMPLEMENTATION-SPEC.md
