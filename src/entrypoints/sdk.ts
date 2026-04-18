@@ -102,13 +102,13 @@ export type SDKUserMessage = GeneratedSDKUserMessage
  * performs the conversion instead of relying on unsafe casts.
  */
 function mapMessageToSDK(msg: Record<string, unknown>): SDKMessage {
+  // Internal messages from QueryEngine already use the SDK field naming
+  // convention (snake_case: parent_tool_use_id, session_id, etc.).
+  // We spread all fields through and let the discriminated-union type
+  // narrow via the `type` field.
   return {
+    ...msg,
     type: (msg.type as string) ?? 'unknown',
-    uuid: msg.uuid as string | undefined,
-    message: msg.message,
-    parentUuid: msg.parentUuid as string | null | undefined,
-    timestamp: msg.timestamp as string | undefined,
-    ...(msg.sessionId ? { sessionId: msg.sessionId } : {}),
   } as SDKMessage
 }
 
