@@ -808,10 +808,14 @@ function createExternalCanUseTool(
       }
     }
 
-    // No user callback — use fallback (auto-allow in most SDK modes).
-    // The pendingPermissionPrompts map is still available for hosts that
-    // want to intercept via a custom mechanism, but by default the
-    // fallback allows everything.
+    // No user callback — register a pending permission for external resolution
+    // via respondToPermission(), then use fallback as safety net.
+    if (toolUseID) {
+      const pendingPromise = queryImpl.registerPendingPermission(toolUseID)
+      // The pending promise can be resolved by calling respondToPermission(toolUseID, decision).
+      // We don't await it here to avoid blocking — the fallback provides the immediate decision.
+      void pendingPromise
+    }
     return fallback(tool, input, toolUseContext, assistantMessage, toolUseID, forceDecision)
   }
 }
