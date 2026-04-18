@@ -30,7 +30,7 @@ export type OutputFormat = {
   schema: Record<string, unknown>
 }
 
-export type ApiKeySource = "user" | "project" | "org" | "temporary" | "oauth"
+export type ApiKeySource = "user" | "project" | "org" | "temporary" | "oauth" | "none"
 
 /** Config scope for settings. */
 export type ConfigScope = "local" | "user" | "project"

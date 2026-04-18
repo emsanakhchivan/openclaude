@@ -97,6 +97,22 @@ export type SDKMessage = GeneratedSDKMessage
 export type SDKUserMessage = GeneratedSDKUserMessage
 
 /**
+ * Map an internal Message object to an SDKMessage.
+ * Internal messages have a different shape from SDK types — this function
+ * performs the conversion instead of relying on unsafe casts.
+ */
+function mapMessageToSDK(msg: Record<string, unknown>): SDKMessage {
+  return {
+    type: (msg.type as string) ?? 'unknown',
+    uuid: msg.uuid as string | undefined,
+    message: msg.message,
+    parentUuid: msg.parentUuid as string | null | undefined,
+    timestamp: msg.timestamp as string | undefined,
+    ...(msg.sessionId ? { sessionId: msg.sessionId } : {}),
+  } as SDKMessage
+}
+
+/**
  * Session metadata returned by listSessions and getSessionInfo.
  * Uses snake_case field names matching the public SDK contract.
  */
@@ -1166,7 +1182,7 @@ class QueryImpl implements Query {
       }
       return { apiKeySource: apiKeySource as ApiKeySource }
     } catch {
-      return { apiKeySource: 'none' as ApiKeySource }
+      return { apiKeySource: 'none' }
     }
   }
 
@@ -1477,8 +1493,7 @@ class SDKSessionImpl implements SDKSession {
   }
 
   getMessages(): SDKMessage[] {
-    // QueryEngine.getMessages() returns readonly Message[], map to SDKMessage[]
-    return this.engine.getMessages() as unknown as SDKMessage[]
+    return this.engine.getMessages().map(msg => mapMessageToSDK(msg as Record<string, unknown>))
   }
 
   interrupt(): void {

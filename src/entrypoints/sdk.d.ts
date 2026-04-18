@@ -59,7 +59,7 @@ export function sdkErrorFromType(
 // Types
 // ============================================================================
 
-export type ApiKeySource = 'user' | 'project' | 'org' | 'temporary' | 'oauth'
+export type ApiKeySource = 'user' | 'project' | 'org' | 'temporary' | 'oauth' | 'none'
 
 export type RewindFilesResult = {
   canRewind: boolean
@@ -157,6 +157,11 @@ export type SessionMessage = {
 
 export type SDKMessage = {
   type: string
+  uuid?: string
+  message?: unknown
+  parentUuid?: string | null
+  timestamp?: string
+  sessionId?: string
   [key: string]: unknown
 }
 
