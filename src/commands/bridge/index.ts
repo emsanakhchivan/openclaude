@@ -1,8 +1,9 @@
+import { feature } from 'bun:bundle'
 import { isBridgeEnabled } from '../../bridge/bridgeEnabled.js'
 import type { Command } from '../../commands.js'
 
 function isEnabled(): boolean {
-  if (!false) {
+  if (!feature('BRIDGE_MODE')) {
     return false
   }
   return isBridgeEnabled()

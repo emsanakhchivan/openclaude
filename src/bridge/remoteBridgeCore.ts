@@ -28,6 +28,7 @@
  * REPL-only — daemon/print stay on env-based.
  */
 
+import { feature } from 'bun:bundle'
 import axios from 'axios'
 import {
   createV2ReplTransport,
@@ -728,7 +729,7 @@ export async function initEnvLessBridgeCore(
     logForDebugging(`[remote-bridge] Torn down (archive=${status})`)
     logForDiagnosticsNoPII('info', 'bridge_repl_v2_teardown')
     logEvent(
-      false && outboundOnly
+      feature('CCR_MIRROR') && outboundOnly
         ? 'tengu_ccr_mirror_teardown'
         : 'tengu_bridge_repl_teardown',
       {
@@ -744,7 +745,7 @@ export async function initEnvLessBridgeCore(
   }
   const unregister = registerCleanup(teardown)
 
-  if (false && outboundOnly) {
+  if (feature('CCR_MIRROR') && outboundOnly) {
     logEvent('tengu_ccr_mirror_started', {
       v2: true,
       expires_in_s: credentials.expires_in,

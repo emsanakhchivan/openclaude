@@ -1,8 +1,9 @@
+import { feature } from 'bun:bundle'
 import type { UUID } from 'crypto'
 import uniqBy from 'lodash-es/uniqBy.js'
 
 /* eslint-disable @typescript-eslint/no-require-imports */
-const sessionTranscriptModule = false
+const sessionTranscriptModule = feature('KAIROS')
   ? (require('../sessionTranscript/sessionTranscript.js') as typeof import('../sessionTranscript/sessionTranscript.js'))
   : null
 
@@ -211,7 +212,7 @@ export function stripImagesFromMessages(messages: Message[]): Message[] {
  * don't exist on external builds).
  */
 export function stripReinjectedAttachments(messages: Message[]): Message[] {
-  if (false) {
+  if (feature('EXPERIMENTAL_SKILL_SEARCH')) {
     return messages.filter(
       m =>
         !(
@@ -696,7 +697,7 @@ export async function compactConversation(
     })
 
     // Reset cache read baseline so the post-compact drop isn't flagged as a break
-    if (false) {
+    if (feature('PROMPT_CACHE_BREAK_DETECTION')) {
       notifyCompaction(
         context.options.querySource ?? 'compact',
         context.agentId,
@@ -713,7 +714,7 @@ export async function compactConversation(
 
     // Write a reduced transcript segment for the pre-compaction messages
     // (assistant mode only). Fire-and-forget — errors are logged internally.
-    if (false) {
+    if (feature('KAIROS')) {
       void sessionTranscriptModule?.writeSessionTranscriptSegment(messages)
     }
 
@@ -1045,7 +1046,7 @@ export async function partialCompactConversation(
       }),
     ]
 
-    if (false) {
+    if (feature('PROMPT_CACHE_BREAK_DETECTION')) {
       notifyCompaction(
         context.options.querySource ?? 'compact',
         context.agentId,
@@ -1057,7 +1058,7 @@ export async function partialCompactConversation(
     // the 16KB tail window that readLiteMetadata reads for --resume display.
     reAppendSessionMetadata()
 
-    if (false) {
+    if (feature('KAIROS')) {
       void sessionTranscriptModule?.writeSessionTranscriptSegment(
         messagesToSummarize,
       )

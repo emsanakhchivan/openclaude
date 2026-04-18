@@ -1,3 +1,4 @@
+import { feature } from 'bun:bundle'
 import { z } from 'zod/v4'
 import { SandboxSettingsSchema } from '../../entrypoints/sandboxTypes.js'
 import { isEnvTruthy } from '../envUtils.js'
@@ -58,7 +59,7 @@ export const PermissionsSchema = lazySchema(() =>
         ),
       defaultMode: z
         .enum(
-          false
+          feature('TRANSCRIPT_CLASSIFIER')
             ? PERMISSION_MODES
             : EXTERNAL_PERMISSION_MODES,
         )
@@ -74,7 +75,7 @@ export const PermissionsSchema = lazySchema(() =>
         .describe(
           'Allow bypass permissions mode to appear in the mode list without requiring the CLI flag',
         ),
-      ...(false
+      ...(feature('TRANSCRIPT_CLASSIFIER')
         ? {
             disableAutoMode: z
               .enum(['disable'])
@@ -834,7 +835,7 @@ export const SettingsSchema = lazySchema(() =>
         .enum(['latest', 'stable'])
         .optional()
         .describe('Release channel for auto-updates (latest or stable)'),
-      ...(false
+      ...(feature('LODESTONE')
         ? {
             disableDeepLinkRegistration: z
               .enum(['disable'])
@@ -867,7 +868,7 @@ export const SettingsSchema = lazySchema(() =>
               ),
           }
         : {}),
-      ...(false || false
+      ...(feature('PROACTIVE') || feature('KAIROS')
         ? {
             minSleepDurationMs: z
               .number()
@@ -890,7 +891,7 @@ export const SettingsSchema = lazySchema(() =>
               ),
           }
         : {}),
-      ...(false
+      ...(feature('VOICE_MODE')
         ? {
             voiceEnabled: z
               .boolean()
@@ -898,7 +899,7 @@ export const SettingsSchema = lazySchema(() =>
               .describe('Enable voice mode (hold-to-talk dictation)'),
           }
         : {}),
-      ...(false
+      ...(feature('KAIROS')
         ? {
             assistant: z
               .boolean()
@@ -948,7 +949,7 @@ export const SettingsSchema = lazySchema(() =>
             'plugins may push inbound messages. Undefined falls back to the default. ' +
             'Requires channelsEnabled: true.',
         ),
-      ...(false || false
+      ...(feature('KAIROS') || feature('KAIROS_BRIEF')
         ? {
             defaultView: z
               .enum(['chat', 'transcript'])
@@ -994,7 +995,7 @@ export const SettingsSchema = lazySchema(() =>
         .describe(
           'Whether the user has accepted the bypass permissions mode dialog',
         ),
-      ...(false
+      ...(feature('TRANSCRIPT_CLASSIFIER')
         ? {
             skipAutoPermissionPrompt: z
               .boolean()

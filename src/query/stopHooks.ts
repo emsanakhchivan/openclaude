@@ -1,3 +1,4 @@
+import { feature } from 'bun:bundle'
 import { getShortcutDisplay } from '../keybindings/shortcutFormat.js'
 import { isExtractModeActive } from '../memdir/paths.js'
 import {
@@ -38,10 +39,10 @@ import { getTaskListId, listTasks } from '../utils/tasks.js'
 import { getAgentName, getTeamName, isTeammate } from '../utils/teammate.js'
 
 /* eslint-disable @typescript-eslint/no-require-imports */
-const extractMemoriesModule = false
+const extractMemoriesModule = feature('EXTRACT_MEMORIES')
   ? (require('../services/extractMemories/extractMemories.js') as typeof import('../services/extractMemories/extractMemories.js'))
   : null
-const jobClassifierModule = false
+const jobClassifierModule = feature('TEMPLATES')
   ? (require('../jobs/classifier.js') as typeof import('../jobs/classifier.js'))
   : null
 
@@ -105,7 +106,7 @@ export async function* handleStopHooks(
   // require()-gated jobs/ import pattern above; spawn.test.ts asserts the
   // string matches.
   if (
-    false &&
+    feature('TEMPLATES') &&
     process.env.CLAUDE_JOB_DIR &&
     querySource.startsWith('repl_main_thread') &&
     !toolUseContext.agentId
@@ -138,7 +139,7 @@ export async function* handleStopHooks(
       void executePromptSuggestion(stopHookContext)
     }
     if (
-      false &&
+      feature('EXTRACT_MEMORIES') &&
       !toolUseContext.agentId &&
       isExtractModeActive()
     ) {
@@ -160,7 +161,7 @@ export async function* handleStopHooks(
   // so a subagent's stopHooks releasing it leaves the main thread's cleanup
   // seeing isLockHeldLocally()===false → no exit notification, and unhides
   // mid-turn. Subagents don't start CU sessions so this is a pure skip.
-  if (false && !toolUseContext.agentId) {
+  if (feature('CHICAGO_MCP') && !toolUseContext.agentId) {
     try {
       const { cleanupComputerUseAfterTurn } = await import(
         '../utils/computerUse/cleanup.js'

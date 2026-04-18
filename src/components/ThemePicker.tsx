@@ -1,3 +1,4 @@
+import { feature } from 'bun:bundle';
 import type { StructuredPatchHunk } from 'diff';
 import * as React from 'react';
 import { useExitOnCtrlCDWithKeybindings } from '../hooks/useExitOnCtrlCDWithKeybindings.js'
@@ -113,7 +114,7 @@ export function ThemePicker({
 
   const themeOptions = React.useMemo(
     () => [
-      ...(false
+      ...(feature("AUTO_THEME")
         ? [{ label: "Auto (match terminal)", value: "auto" as const }]
         : []), { 
         label: "Dark mode",

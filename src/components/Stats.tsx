@@ -1,4 +1,5 @@
 import { c as _c } from "react-compiler-runtime";
+import { feature } from 'bun:bundle';
 import { plot as asciichart } from 'asciichart';
 import chalk from 'chalk';
 import figures from 'figures';
@@ -387,7 +388,7 @@ function OverviewTab({
       pct: number;
     }[];
   } | null = null;
-  if (false && stats.shotDistribution) {
+  if (feature('SHOT_STATS') && stats.shotDistribution) {
     const dist = stats.shotDistribution;
     const total = Object.values(dist).reduce((s, n) => s + n, 0);
     if (total > 0) {
@@ -1156,7 +1157,7 @@ function renderOverviewToAnsi(stats: ClaudeCodeStats): string[] {
   }
 
   // Shot stats (internal-only)
-  if (false && stats.shotDistribution) {
+  if (feature('SHOT_STATS') && stats.shotDistribution) {
     const dist = stats.shotDistribution;
     const totalWithShots = Object.values(dist).reduce((s, n) => s + n, 0);
     if (totalWithShots > 0) {

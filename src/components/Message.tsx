@@ -1,4 +1,5 @@
 import { c as _c } from "react-compiler-runtime";
+import { feature } from 'bun:bundle';
 import type { BetaContentBlock } from '@anthropic-ai/sdk/resources/beta/messages/messages.mjs';
 import type { ImageBlockParam, TextBlockParam, ThinkingBlockParam, ToolResultBlockParam, ToolUseBlockParam } from '@anthropic-ai/sdk/resources/index.mjs';
 import * as React from 'react';
@@ -245,7 +246,7 @@ function MessageImpl(t0) {
         if (message.subtype === "microcompact_boundary") {
           return null;
         }
-        if (false) {
+        if (feature("HISTORY_SNIP")) {
           const {
             isSnipBoundaryMessage
           } = require("../services/compact/snipProjection.js") as typeof import('../services/compact/snipProjection.js');
@@ -450,7 +451,7 @@ function AssistantMessageBlock(t0) {
     lastThinkingBlockId,
     advisorModel
   } = t0;
-  if (false) {
+  if (feature("CONNECTOR_TEXT")) {
     if (isConnectorTextBlock(param)) {
       let t1;
       if ($[0] !== param.connector_text) {

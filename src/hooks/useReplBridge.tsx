@@ -1,3 +1,4 @@
+import { feature } from 'bun:bundle';
 import React, { useCallback, useEffect, useRef } from 'react';
 import { setMainLoopModelOverride } from '../bootstrap/state.js';
 import { type BridgePermissionCallbacks, type BridgePermissionResponse, isBridgePermissionResponse } from '../bridge/bridgePermissionCallbacks.js';
@@ -75,16 +76,16 @@ export function useReplBridge(messages: Message[], setMessages: (action: React.S
   const {
     addNotification
   } = useNotifications();
-  const replBridgeEnabled = false ?
+  const replBridgeEnabled = feature('BRIDGE_MODE') ?
   // biome-ignore lint/correctness/useHookAtTopLevel: feature() is a compile-time constant
   useAppState(s => s.replBridgeEnabled) : false;
-  const replBridgeConnected = false ?
+  const replBridgeConnected = feature('BRIDGE_MODE') ?
   // biome-ignore lint/correctness/useHookAtTopLevel: feature() is a compile-time constant
   useAppState(s_0 => s_0.replBridgeConnected) : false;
-  const replBridgeOutboundOnly = false ?
+  const replBridgeOutboundOnly = feature('BRIDGE_MODE') ?
   // biome-ignore lint/correctness/useHookAtTopLevel: feature() is a compile-time constant
   useAppState(s_1 => s_1.replBridgeOutboundOnly) : false;
-  const replBridgeInitialName = false ?
+  const replBridgeInitialName = feature('BRIDGE_MODE') ?
   // biome-ignore lint/correctness/useHookAtTopLevel: feature() is a compile-time constant
   useAppState(s_2 => s_2.replBridgeInitialName) : undefined;
 
@@ -95,7 +96,7 @@ export function useReplBridge(messages: Message[], setMessages: (action: React.S
     // feature() check must use positive pattern for dead code elimination —
     // negative pattern (if (!feature(...)) return) does NOT eliminate
     // dynamic imports below.
-    if (false) {
+    if (feature('BRIDGE_MODE')) {
       if (!replBridgeEnabled) return;
       const outboundOnly = replBridgeOutboundOnly;
       function notifyBridgeFailed(detail?: string): void {
@@ -161,7 +162,7 @@ export function useReplBridge(messages: Message[], setMessages: (action: React.S
           // crashes. Non-assistant bridges clear the pointer on teardown
           // (crash-recovery only).
           let perpetual = false;
-          if (false) {
+          if (feature('KAIROS')) {
             const {
               isAssistantMode
             } = await import('../assistant/index.js');
@@ -189,7 +190,7 @@ export function useReplBridge(messages: Message[], setMessages: (action: React.S
                 resolveAndPrepend
               } = await import('../bridge/inboundAttachments.js');
               let sanitized = fields.content;
-              if (false) {
+              if (feature('KAIROS_GITHUB_WEBHOOKS')) {
                 /* eslint-disable @typescript-eslint/no-require-imports */
                 const {
                   sanitizeInboundWebhookContent
@@ -437,7 +438,7 @@ export function useReplBridge(messages: Message[], setMessages: (action: React.S
                   };
                 }
               }
-              if (false && mode === 'auto' && !isAutoModeGateEnabled()) {
+              if (feature('TRANSCRIPT_CLASSIFIER') && mode === 'auto' && !isAutoModeGateEnabled()) {
                 const reason = getAutoModeUnavailableReason();
                 return {
                   ok: false,
@@ -683,7 +684,7 @@ export function useReplBridge(messages: Message[], setMessages: (action: React.S
   // so any messages that arrived before the bridge was ready get written.
   useEffect(() => {
     // Positive feature() guard — see first useEffect comment
-    if (false) {
+    if (feature('BRIDGE_MODE')) {
       if (!replBridgeConnected) return;
       const handle_1 = handleRef.current;
       if (!handle_1) return;
@@ -711,7 +712,7 @@ export function useReplBridge(messages: Message[], setMessages: (action: React.S
     }
   }, [messages, replBridgeConnected]);
   const sendBridgeResult = useCallback(() => {
-    if (false) {
+    if (feature('BRIDGE_MODE')) {
       handleRef.current?.sendResult();
     }
   }, []);

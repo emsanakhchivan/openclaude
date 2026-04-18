@@ -1,3 +1,4 @@
+import { feature } from 'bun:bundle'
 import { APIError } from '@anthropic-ai/sdk'
 import type {
   BetaStopReason,
@@ -554,7 +555,7 @@ function logAPISuccess({
     // Log cache_deleted_input_tokens for cache editing analysis. Casts needed
     // because the field is intentionally not on NonNullableUsage (excluded from
     // external builds). Set by updateUsage() when cache editing is active.
-    ...(false &&
+    ...(feature('CACHED_MICROCOMPACT') &&
     ((usage as unknown as { cache_deleted_input_tokens?: number })
       .cache_deleted_input_tokens ?? 0) > 0
       ? {
@@ -658,7 +659,7 @@ export function logAPISuccessAndDuration({
       for (const block of msg.message.content) {
         if (block.type === 'text') {
           textLen += block.text.length
-        } else if (false && isConnectorTextBlock(block)) {
+        } else if (feature('CONNECTOR_TEXT') && isConnectorTextBlock(block)) {
           connectorCount++
         } else if (block.type === 'thinking') {
           thinkingLen += block.thinking.length

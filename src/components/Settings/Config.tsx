@@ -1,5 +1,6 @@
 import { c as _c } from "react-compiler-runtime";
 // biome-ignore-all assist/source/organizeImports: internal-only import markers must not be reordered
+import { feature } from 'bun:bundle';
 import { Box, Text, useTheme, useThemeSetting, useTerminalFocus } from '../../ink.js';
 import type { KeyboardEvent } from '../../ink/events/keyboard-event.js';
 import * as React from 'react';
@@ -124,13 +125,13 @@ export function Config({
   // Show auto in the default-mode dropdown when the user has opted in OR the
   // config is fully 'enabled' — even if currently circuit-broken ('disabled'),
   // an opted-in user should still see it in settings (it's a temporary state).
-  const showAutoInDefaultModePicker = false ? hasAutoModeOptInAnySource() || getAutoModeEnabledState() === 'enabled' : false;
+  const showAutoInDefaultModePicker = feature('TRANSCRIPT_CLASSIFIER') ? hasAutoModeOptInAnySource() || getAutoModeEnabledState() === 'enabled' : false;
   // Chat/Transcript view picker is visible to entitled users (pass the GB
   // gate) even if they haven't opted in this session — it IS the persistent
   // opt-in. 'chat' written here is read at next startup by main.tsx which
   // sets userMsgOptIn if still entitled.
   /* eslint-disable @typescript-eslint/no-require-imports */
-  const showDefaultViewPicker = false || false ? (require('../../tools/BriefTool/BriefTool.js') as typeof import('../../tools/BriefTool/BriefTool.js')).isBriefEntitled() : false;
+  const showDefaultViewPicker = feature('KAIROS') || feature('KAIROS_BRIEF') ? (require('../../tools/BriefTool/BriefTool.js') as typeof import('../../tools/BriefTool/BriefTool.js')).isBriefEntitled() : false;
   /* eslint-enable @typescript-eslint/no-require-imports */
   const setAppState = useSetAppState();
   const [changes, setChanges] = useState<{
@@ -496,9 +497,9 @@ export function Config({
     value: settingsData?.permissions?.defaultMode || 'default',
     options: (() => {
       const priorityOrder: PermissionMode[] = ['default', 'plan'];
-      const allModes: readonly PermissionMode[] = false ? PERMISSION_MODES : EXTERNAL_PERMISSION_MODES;
+      const allModes: readonly PermissionMode[] = feature('TRANSCRIPT_CLASSIFIER') ? PERMISSION_MODES : EXTERNAL_PERMISSION_MODES;
       const excluded: PermissionMode[] = ['bypassPermissions'];
-      if (false && !showAutoInDefaultModePicker) {
+      if (feature('TRANSCRIPT_CLASSIFIER') && !showAutoInDefaultModePicker) {
         excluded.push('auto');
       }
       return [...priorityOrder, ...allModes.filter(m => !priorityOrder.includes(m) && !excluded.includes(m))];
@@ -540,7 +541,7 @@ export function Config({
         value: mode as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS
       });
     }
-  }, ...(false && showAutoInDefaultModePicker ? [{
+  }, ...(feature('TRANSCRIPT_CLASSIFIER') && showAutoInDefaultModePicker ? [{
     id: 'useAutoModeDuringPlan',
     label: 'Use auto mode during plan',
     value: (settingsData as {
@@ -673,7 +674,7 @@ export function Config({
     onChange: setTheme
   }, {
     id: 'notifChannel',
-    label: false || false ? 'Local notifications' : 'Notifications',
+    label: feature('KAIROS') || feature('KAIROS_PUSH_NOTIFICATION') ? 'Local notifications' : 'Notifications',
     value: globalConfig.preferredNotifChannel,
     options: ['auto', 'iterm2', 'terminal_bell', 'iterm2_with_bell', 'kitty', 'ghostty', 'notifications_disabled'],
     type: 'enum',
@@ -687,7 +688,7 @@ export function Config({
         preferredNotifChannel: notifChannel
       });
     }
-  }, ...(false || false ? [{
+  }, ...(feature('KAIROS') || feature('KAIROS_PUSH_NOTIFICATION') ? [{
     id: 'taskCompleteNotifEnabled',
     label: 'Push when idle',
     value: globalConfig.taskCompleteNotifEnabled ?? false,
@@ -945,7 +946,7 @@ export function Config({
     }];
   })() : []),
   // Remote at startup toggle — gated on build flag + GrowthBook + policy
-  ...(false && isBridgeEnabled() ? [{
+  ...(feature('BRIDGE_MODE') && isBridgeEnabled() ? [{
     id: 'remoteControlAtStartup',
     label: 'Enable Remote Control for all sessions',
     value: globalConfig.remoteControlAtStartup === undefined ? 'default' : String(globalConfig.remoteControlAtStartup),
@@ -1222,7 +1223,7 @@ export function Config({
       autoUpdatesChannel: iu?.autoUpdatesChannel,
       minimumVersion: iu?.minimumVersion,
       language: iu?.language,
-      ...(false ? {
+      ...(feature('TRANSCRIPT_CLASSIFIER') ? {
         useAutoModeDuringPlan: (iu as {
           useAutoModeDuringPlan?: boolean;
         } | undefined)?.useAutoModeDuringPlan

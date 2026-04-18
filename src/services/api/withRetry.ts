@@ -1,3 +1,4 @@
+import { feature } from 'bun:bundle'
 import type Anthropic from '@anthropic-ai/sdk'
 import {
   APIConnectionError,
@@ -77,7 +78,7 @@ const FOREGROUND_529_RETRY_SOURCES = new Set<QuerySource>([
   // type-only). bash_classifier is internal-only; feature-gate so the string
   // tree-shakes out of external builds (excluded-strings.txt).
   'auto_mode',
-  ...(false ? (['bash_classifier'] as const) : []),
+  ...(feature('BASH_CLASSIFIER') ? (['bash_classifier'] as const) : []),
 ])
 
 function shouldRetry529(querySource: QuerySource | undefined): boolean {
@@ -97,7 +98,7 @@ const PERSISTENT_RESET_CAP_MS = 6 * 60 * 60 * 1000
 const HEARTBEAT_INTERVAL_MS = 30_000
 
 function isPersistentRetryEnabled(): boolean {
-  return false
+  return feature('UNATTENDED_RETRY')
     ? isEnvTruthy(process.env.CLAUDE_CODE_UNATTENDED_RETRY)
     : false
 }
