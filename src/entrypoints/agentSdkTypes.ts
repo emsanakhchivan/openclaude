@@ -167,15 +167,6 @@ export function watchScheduledTasks(_opts: {
 }
 
 /**
- * Format missed one-shot tasks into a prompt that asks the model to confirm
- * with the user (via AskUserQuestion) before executing.
- * @internal
- */
-export function buildMissedTaskNotification(_missed: CronTask[]): string {
-  throw new Error('not implemented')
-}
-
-/**
  * A user message typed on claude.ai, extracted from the bridge WS.
  * @internal
  */

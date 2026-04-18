@@ -850,14 +850,20 @@ function createExternalCanUseTool(
       const timeoutMs = 30000 // 30 second timeout for external permission resolution
 
       // Race between external resolution and timeout
+      let timeoutId: ReturnType<typeof setTimeout> | undefined
       const timeoutPromise = new Promise<{ timedOut: true }>(resolve => {
-        setTimeout(() => resolve({ timedOut: true }), timeoutMs)
+        timeoutId = setTimeout(() => resolve({ timedOut: true }), timeoutMs)
       })
 
       const raceResult = await Promise.race([
         pendingPromise.then(result => ({ result, timedOut: false })),
         timeoutPromise,
       ])
+
+      // Clear timeout if permission resolved before timeout
+      if (timeoutId !== undefined) {
+        clearTimeout(timeoutId)
+      }
 
       if (!raceResult.timedOut && raceResult.result) {
         // External resolution succeeded before timeout
