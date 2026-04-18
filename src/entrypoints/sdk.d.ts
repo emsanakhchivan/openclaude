@@ -167,8 +167,8 @@ export type SDKMessage = {
 
 export type SDKUserMessage = {
   type: 'user'
-  message: string | Array<{ type: string; text?: string; [key: string]: unknown }>
-  parent_tool_use_id?: string | null
+  message: Record<string, unknown> & { role: 'user'; content: string | Array<unknown> }
+  parent_tool_use_id: string | null
   isSynthetic?: boolean
   tool_use_result?: unknown
   priority?: 'now' | 'next' | 'later'
