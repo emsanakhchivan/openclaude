@@ -44,6 +44,7 @@ export {
   renameSession,
   tagSession,
   forkSession,
+  deleteSession,
 } from './sdk.js'
 
 // Import types needed for @internal function signatures kept below

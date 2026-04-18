@@ -177,19 +177,69 @@ export type SDKUserMessage = {
   session_id?: string
 }
 
-export type SDKResultMessage = SDKMessage & {
-  type: 'result'
-  subtype: string
-  is_error: boolean
-  duration_ms: number
-  duration_api_ms: number
-  num_turns: number
-  result: string
-  stop_reason: string | null
-  session_id: string
-  total_cost_usd: number
-  uuid: string
-}
+export type SDKResultMessage = SDKMessage & (
+  | {
+      type: 'result'
+      subtype: 'success'
+      is_error: boolean
+      duration_ms: number
+      duration_api_ms: number
+      num_turns: number
+      result: string
+      stop_reason: string | null
+      total_cost_usd: number
+      usage: Record<string, number>
+      modelUsage: Record<string, {
+        inputTokens: number
+        outputTokens: number
+        cacheReadInputTokens: number
+        cacheCreationInputTokens: number
+        webSearchRequests: number
+        costUSD: number
+        contextWindow: number
+        maxOutputTokens: number
+      }>
+      permission_denials: {
+        tool_name: string
+        tool_use_id: string
+        tool_input: Record<string, unknown>
+      }[]
+      structured_output?: unknown
+      fast_mode_state?: 'off' | 'cooldown' | 'on'
+      uuid: string
+      session_id: string
+    }
+  | {
+      type: 'result'
+      subtype: 'error_during_execution' | 'error_max_turns' | 'error_max_budget_usd' | 'error_max_structured_output_retries'
+      is_error: boolean
+      duration_ms: number
+      duration_api_ms: number
+      num_turns: number
+      stop_reason: string | null
+      total_cost_usd: number
+      usage: Record<string, number>
+      modelUsage: Record<string, {
+        inputTokens: number
+        outputTokens: number
+        cacheReadInputTokens: number
+        cacheCreationInputTokens: number
+        webSearchRequests: number
+        costUSD: number
+        contextWindow: number
+        maxOutputTokens: number
+      }>
+      permission_denials: {
+        tool_name: string
+        tool_use_id: string
+        tool_input: Record<string, unknown>
+      }[]
+      errors: string[]
+      fast_mode_state?: 'off' | 'cooldown' | 'on'
+      uuid: string
+      session_id: string
+    }
+)
 
 // ============================================================================
 // Query types
@@ -206,6 +256,10 @@ export type QueryOptions = {
   additionalDirectories?: string[]
   model?: string
   sessionId?: string
+  /** Fork the session before resuming (requires sessionId). */
+  fork?: boolean
+  /** Resume the most recent session for this cwd (no sessionId needed). */
+  continue?: boolean
   resume?: string
   permissionMode?: QueryPermissionMode
   abortController?: AbortController
@@ -236,7 +290,10 @@ export interface Query {
   close(): void
   interrupt(): void
   respondToPermission(toolUseId: string, decision: PermissionResult): void
+  /** Check if file rewind is possible. */
   rewindFiles(): RewindFilesResult
+  /** Actually perform the file rewind. Returns files changed and diff stats. */
+  rewindFilesAsync(): Promise<RewindFilesResult>
   supportedCommands(): string[]
   supportedModels(): string[]
   supportedAgents(): string[]

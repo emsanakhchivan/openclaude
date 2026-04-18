@@ -69,6 +69,8 @@ import {
   type FileHistoryState,
 } from '../utils/fileHistory.js'
 import type { MCPServerConnection } from '../services/mcp/types.js'
+import { filterToolsByServer } from '../services/mcp/utils.js'
+import type { ThinkingConfig } from '../utils/thinking.js'
 
 /**
  * Validate sessionId is a proper UUID to prevent path traversal.
@@ -77,6 +79,36 @@ import type { MCPServerConnection } from '../services/mcp/types.js'
 function assertValidSessionId(sessionId: string): void {
   if (!validateUuid(sessionId)) {
     throw new Error(`Invalid session ID: ${sessionId}`)
+  }
+}
+
+// ============================================================================
+// Environment mutation mutex for parallel query safety
+// ============================================================================
+
+/**
+ * Global mutex for process.env mutations.
+ * Prevents race conditions when multiple queries run in parallel.
+ */
+const envMutationQueue: Array<() => void> = []
+let envMutationLocked = false
+
+function acquireEnvMutex(): Promise<void> {
+  if (!envMutationLocked) {
+    envMutationLocked = true
+    return Promise.resolve()
+  }
+  return new Promise(resolve => {
+    envMutationQueue.push(resolve)
+  })
+}
+
+function releaseEnvMutex(): void {
+  if (envMutationQueue.length > 0) {
+    const next = envMutationQueue.shift()
+    if (next) next()
+  } else {
+    envMutationLocked = false
   }
 }
 
@@ -695,6 +727,8 @@ export interface Query {
   respondToPermission(toolUseId: string, decision: PermissionResult): void
   /** Undo file changes made during the session. */
   rewindFiles(): RewindFilesResult
+  /** Actually perform the file rewind. Returns files changed and diff stats. */
+  rewindFilesAsync(): Promise<RewindFilesResult>
   /** List available slash commands. */
   supportedCommands(): string[]
   /** List available models. */
@@ -808,13 +842,31 @@ function createExternalCanUseTool(
       }
     }
 
-    // No user callback — register a pending permission for external resolution
-    // via respondToPermission(), then use fallback as safety net.
+    // No user callback — await pending permission with timeout.
+    // The host can resolve this via respondToPermission() before timeout.
+    // If timeout expires (30 seconds), use fallback decision.
     if (toolUseID) {
       const pendingPromise = queryImpl.registerPendingPermission(toolUseID)
-      // The pending promise can be resolved by calling respondToPermission(toolUseID, decision).
-      // We don't await it here to avoid blocking — the fallback provides the immediate decision.
-      void pendingPromise
+      const timeoutMs = 30000 // 30 second timeout for external permission resolution
+
+      // Race between external resolution and timeout
+      const timeoutPromise = new Promise<{ timedOut: true }>(resolve => {
+        setTimeout(() => resolve({ timedOut: true }), timeoutMs)
+      })
+
+      const raceResult = await Promise.race([
+        pendingPromise.then(result => ({ result, timedOut: false })),
+        timeoutPromise,
+      ])
+
+      if (!raceResult.timedOut && raceResult.result) {
+        // External resolution succeeded before timeout
+        queryImpl.pendingPermissionPrompts.delete(toolUseID)
+        return raceResult.result
+      }
+
+      // Timeout expired — clean up and use fallback
+      queryImpl.pendingPermissionPrompts.delete(toolUseID)
     }
     return fallback(tool, input, toolUseContext, assistantMessage, toolUseID, forceDecision)
   }
@@ -983,15 +1035,21 @@ class QueryImpl implements Query {
       }
 
       // Apply env overrides AFTER init() so they override config file env vars
+      // Use mutex to ensure safe parallel query execution
       if (this.envOverrides && Object.keys(this.envOverrides).length > 0) {
-        // Snapshot existing values for keys we'll override
-        this.envSnapshot = {}
-        for (const key of Object.keys(this.envOverrides)) {
-          this.envSnapshot[key] = process.env[key]
-        }
-        // Apply overrides
-        for (const [key, value] of Object.entries(this.envOverrides)) {
-          process.env[key] = value
+        await acquireEnvMutex()
+        try {
+          // Snapshot existing values for keys we'll override
+          this.envSnapshot = {}
+          for (const key of Object.keys(this.envOverrides)) {
+            this.envSnapshot[key] = process.env[key]
+          }
+          // Apply overrides
+          for (const [key, value] of Object.entries(this.envOverrides)) {
+            process.env[key] = value
+          }
+        } finally {
+          releaseEnvMutex()
         }
       }
 
@@ -1043,15 +1101,20 @@ class QueryImpl implements Query {
         }
       }
     } finally {
-      // Restore environment variables to snapshot state
+      // Restore environment variables to snapshot state (with mutex for safety)
       if (this.envSnapshot) {
-        for (const key of Object.keys(this.envSnapshot)) {
-          const originalValue = this.envSnapshot[key]
-          if (originalValue === undefined) {
-            delete process.env[key]
-          } else {
-            process.env[key] = originalValue
+        await acquireEnvMutex()
+        try {
+          for (const key of Object.keys(this.envSnapshot)) {
+            const originalValue = this.envSnapshot[key]
+            if (originalValue === undefined) {
+              delete process.env[key]
+            } else {
+              process.env[key] = originalValue
+            }
           }
+        } finally {
+          releaseEnvMutex()
         }
       }
     }
@@ -1120,14 +1183,66 @@ class QueryImpl implements Query {
       if (!messageId) continue
 
       if (fileHistoryCanRestore(fileHistory, messageId as any)) {
-        // Synchronous check — return canRewind: true.
-        // The actual rewind is async; caller should use rewindFilesAsync()
-        // (not yet exposed in the public API) or trigger via other means.
+        // Synchronous check — return canRewind: true with the messageId.
+        // Use rewindFilesAsync() to actually perform the rewind.
         return { canRewind: true }
       }
     }
 
     return { canRewind: false, error: 'No file-history snapshot found to rewind to' }
+  }
+
+  /**
+   * Actually perform the file rewind to the last file-history snapshot.
+   * Returns the files changed and diff stats if successful.
+   */
+  async rewindFilesAsync(): Promise<RewindFilesResult> {
+    const state = this.appStateStore.getState()
+    const messages = this.engine.getMessages()
+
+    // Find the last assistant message UUID that has a file-history snapshot
+    const fileHistory = state.fileHistory
+    let targetMessageId: string | undefined
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const msg = messages[i]
+      const messageId = (msg as any)?.uuid as string | undefined
+      if (!messageId) continue
+
+      if (fileHistoryCanRestore(fileHistory, messageId as any)) {
+        targetMessageId = messageId
+        break
+      }
+    }
+
+    if (!targetMessageId) {
+      return { canRewind: false, error: 'No file-history snapshot found to rewind to' }
+    }
+
+    // Get diff stats before rewinding
+    const diffStats = fileHistoryGetDiffStats(fileHistory, targetMessageId as any)
+
+    // Perform the actual rewind
+    try {
+      await fileHistoryRewind(
+        (updater) => this.appStateStore.setState(prev => ({
+          ...prev,
+          fileHistory: updater(prev.fileHistory),
+        })),
+        targetMessageId as any,
+      )
+
+      return {
+        canRewind: true,
+        filesChanged: diffStats?.filesChanged,
+        insertions: diffStats?.insertions ?? 0,
+        deletions: diffStats?.deletions ?? 0,
+      }
+    } catch (err) {
+      return {
+        canRewind: false,
+        error: err instanceof Error ? err.message : 'Rewind failed',
+      }
+    }
   }
 
   supportedCommands(): string[] {
@@ -1152,6 +1267,7 @@ class QueryImpl implements Query {
   mcpServerStatus(): McpServerStatus[] {
     const state = this.appStateStore.getState()
     const clients: MCPServerConnection[] = state.mcp?.clients ?? []
+    const allTools = state.mcp?.tools ?? []
     return clients.map((client): McpServerStatus => {
       const base: McpServerStatus = {
         name: client.name,
@@ -1159,7 +1275,10 @@ class QueryImpl implements Query {
       }
       if (client.type === 'connected') {
         base.serverInfo = client.serverInfo
-        base.tools = (client as any).tools?.map((t: any) => ({
+        // Tools are stored in state.mcp.tools (flat array), not on individual clients.
+        // Use filterToolsByServer to get tools belonging to this server.
+        const serverTools = filterToolsByServer(allTools, client.name)
+        base.tools = serverTools.map(t => ({
           name: t.name,
           description: t.description,
           annotations: t.annotations,
@@ -1196,6 +1315,10 @@ class QueryImpl implements Query {
       thinkingEnabled: tokens > 0 ? true : prev.thinkingEnabled,
       thinkingBudgetTokens: tokens > 0 ? tokens : undefined,
     }))
+    // Also update the engine's thinking config so subsequent API calls use the new budget
+    this.engine.setThinkingConfig(tokens > 0
+      ? { type: 'enabled', budgetTokens: tokens }
+      : { type: 'disabled' })
   }
 }
 
@@ -1654,12 +1777,24 @@ export async function unstable_v2_resumeSession(
     includeSystemMessages: false,
   })
 
-  // Convert SessionMessage[] to the format QueryEngine expects
-  const initialMessages = priorMessages.map((msg): Record<string, unknown> => ({
-    role: msg.role,
-    content: msg.content,
-    ...(msg as Record<string, unknown>),
-  }))
+  // Convert SessionMessage[] to Message[] format expected by QueryEngine
+  // SessionMessage: { role, content, uuid, timestamp, parent_uuid }
+  // Message: { type, message: { role, content }, uuid, timestamp }
+  const initialMessages = priorMessages.map((msg): Record<string, unknown> => {
+    // Map role to type and message structure
+    const type = msg.role === 'user' ? 'user' : msg.role === 'assistant' ? 'assistant' : 'system'
+    return {
+      type,
+      message: {
+        role: msg.role,
+        content: msg.content,
+      },
+      uuid: msg.uuid,
+      timestamp: msg.timestamp,
+      // Preserve any additional fields that might be needed
+      ...(msg.parent_uuid ? { parentUuid: msg.parent_uuid } : {}),
+    }
+  })
 
   const { engine, appStateStore } = createEngineFromOptions(
     options,
