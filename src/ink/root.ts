@@ -68,6 +68,11 @@ export type Root = {
   render: (node: ReactNode) => void
   unmount: () => void
   waitUntilExit: () => Promise<void>
+  /**
+   * Flush all pending React updates and render synchronously.
+   * Useful in tests to deterministically wait for state changes to appear.
+   */
+  flush: () => void
 }
 
 /**
@@ -153,6 +158,7 @@ export async function createRoot({
     render: node => instance.render(node),
     unmount: () => instance.unmount(),
     waitUntilExit: () => instance.waitUntilExit(),
+    flush: () => instance.flush(),
   }
 }
 

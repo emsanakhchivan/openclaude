@@ -815,11 +815,19 @@ export default class Ink {
       flickers
     });
   }
-  pause(): void {
-    // Flush pending React updates and render before pausing.
+  /**
+   * Flush all pending React updates and render synchronously.
+   * Used by tests to deterministically wait for state changes to appear on screen.
+   */
+  flush(): void {
     // @ts-expect-error flushSyncFromReconciler exists in react-reconciler 0.31 but not in @types/react-reconciler
     reconciler.flushSyncFromReconciler();
     this.onRender();
+  }
+
+  pause(): void {
+    // Flush pending React updates and render before pausing.
+    this.flush();
     this.isPaused = true;
   }
   resume(): void {

@@ -56,6 +56,11 @@ function createTestStreams(): {
 } {
   let output = ''
   const stdout = new PassThrough()
+  // Use data-mode stdin: PassThrough.write() triggers 'data' events
+  // but not 'readable' events reliably. Ink's default readable-mode
+  // handler (handleReadable) would never fire, so stdin writes would be
+  // silently dropped. Setting OPENCLAUDE_USE_DATA_STDIN=1 before each
+  // mount makes Ink use the 'data' event path instead.
   const stdin = new PassThrough() as PassThrough & {
     isTTY: boolean
     setRawMode: (mode: boolean) => void
@@ -81,13 +86,20 @@ function createTestStreams(): {
 
 async function waitForCondition(
   predicate: () => boolean,
-  options?: { timeoutMs?: number; intervalMs?: number },
+  options?: { timeoutMs?: number; intervalMs?: number; flush?: () => void },
 ): Promise<void> {
   const timeoutMs = options?.timeoutMs ?? 2000
-  const intervalMs = options?.intervalMs ?? 10
+  const intervalMs = options?.intervalMs ?? 16
+  const flush = options?.flush
   const startedAt = Date.now()
 
   while (Date.now() - startedAt < timeoutMs) {
+    // Phase 1: yield so microtasks/macrotasks run
+    await Bun.sleep(0)
+    // Phase 2: flush React reconciler + render
+    flush?.()
+    // Phase 3: yield again so effects triggered by flush can settle
+    await Bun.sleep(0)
     if (predicate()) {
       return
     }
@@ -95,6 +107,28 @@ async function waitForCondition(
   }
 
   throw new Error('Timed out waiting for ProviderManager test condition')
+}
+
+/**
+ * Two-phase event-loop barrier: yield → flush → yield → flush → yield.
+ * Ensures microtasks, React reconciler, effects, and async callbacks
+ * have all settled before the caller inspects state.
+ *
+ * Phase 1 (yield): microtasks/macrotasks run (queueMicrotask, Promise.resolve)
+ * Phase 2 (flush): React state updates committed, reconciler flushed
+ * Phase 3 (yield): React effects fire (useEffect), async callbacks progress
+ * Phase 4 (flush): effect-triggered state updates committed
+ * Phase 5 (yield): any cascading microtasks from effect-triggered work settle
+ */
+/**
+ * Send a key to stdin. The caller is responsible for waiting for the
+ * resulting render via waitForFrameOutput or waitForCondition.
+ */
+function sendKey(
+  stdin: PassThrough,
+  key: string,
+): void {
+  stdin.write(key)
 }
 
 function createDeferred<T>(): {
@@ -269,18 +303,19 @@ function mockProviderManagerDependencies(
 async function waitForFrameOutput(
   getOutput: () => string,
   predicate: (output: string) => boolean,
+  flush?: () => void,
   timeoutMs = 2500,
 ): Promise<string> {
   let output = ''
 
   await waitForCondition(() => {
     output = stripAnsi(extractLastFrame(getOutput()))
-    // ProviderManager now shows loading state before content, skip loading frames
+    // ProviderManager shows loading state before content, skip loading frames
     if (output.includes('Loading providers') || output.includes('Activating provider')) {
       return false
     }
     return predicate(output)
-  }, { timeoutMs })
+  }, { timeoutMs, flush })
 
   return output
 }
@@ -297,14 +332,29 @@ async function mountProviderManager(
 ): Promise<{
   stdin: PassThrough
   getOutput: () => string
+  flush: () => void
   dispose: () => Promise<void>
 }> {
   const { stdout, stdin, getOutput } = createTestStreams()
+
+  // Ink's App component reads this env at construction time to choose
+  // between 'readable' and 'data' stdin modes. PassThrough streams do not
+  // reliably emit 'readable' events after write(), so force data mode.
+  const prevDataStdin = process.env.OPENCLAUDE_USE_DATA_STDIN
+  process.env.OPENCLAUDE_USE_DATA_STDIN = '1'
+
   const root = await createRoot({
     stdout: stdout as unknown as NodeJS.WriteStream,
     stdin: stdin as unknown as NodeJS.ReadStream,
     patchConsole: false,
   })
+
+  // Restore after Ink instance is created (it already read the env)
+  if (prevDataStdin === undefined) {
+    delete process.env.OPENCLAUDE_USE_DATA_STDIN
+  } else {
+    process.env.OPENCLAUDE_USE_DATA_STDIN = prevDataStdin
+  }
 
   root.render(
     <AppStateProvider>
@@ -320,6 +370,7 @@ async function mountProviderManager(
   return {
     stdin,
     getOutput,
+    flush: () => root.flush(),
     dispose: async () => {
       root.unmount()
       stdin.end()
@@ -344,7 +395,6 @@ async function renderProviderManagerFrame(
     mode: options?.mode,
   })
 
-  // waitForFrameOutput now skips loading/activating frames by default
   const output = await waitForFrameOutput(
     mounted.getOutput,
     frame => {
@@ -353,6 +403,7 @@ async function renderProviderManagerFrame(
       }
       return options.waitForOutput(frame)
     },
+    mounted.flush,
     options?.timeoutMs ?? 2500,
   )
 
@@ -422,6 +473,7 @@ test('ProviderManager avoids first-frame false negative while stored-token looku
   const firstFrame = await waitForFrameOutput(
     mounted.getOutput,
     frame => frame.includes('Provider manager'),
+    mounted.flush,
   )
 
   expect(firstFrame).toContain('Checking GitHub Models credentials...')
@@ -432,6 +484,7 @@ test('ProviderManager avoids first-frame false negative while stored-token looku
   const resolvedFrame = await waitForFrameOutput(
     mounted.getOutput,
     frame => frame.includes('GitHub Models') && frame.includes('token stored'),
+    mounted.flush,
   )
 
   expect(resolvedFrame).toContain('GitHub Models')
@@ -498,11 +551,12 @@ test('ProviderManager first-run Ollama preset auto-detects installed models', as
   await waitForFrameOutput(
     mounted.getOutput,
     frame => frame.includes('Set up provider') && frame.includes('Ollama'),
+    mounted.flush,
   )
 
-  mounted.stdin.write('j')
-  await Bun.sleep(50)
-  mounted.stdin.write('\r')
+  // Navigate down to Ollama preset and select it
+  sendKey(mounted.stdin, 'j')
+  sendKey(mounted.stdin, '\r')
 
   const modelFrame = await waitForFrameOutput(
     mounted.getOutput,
@@ -510,15 +564,16 @@ test('ProviderManager first-run Ollama preset auto-detects installed models', as
       frame.includes('Choose an Ollama model') &&
       frame.includes('gemma4:31b-cloud') &&
       frame.includes('kimi-k2.5:cloud'),
+    mounted.flush,
   )
 
   expect(modelFrame).toContain('Choose an Ollama model')
   expect(modelFrame).toContain('gemma4:31b-cloud')
 
-  await Bun.sleep(25)
-  mounted.stdin.write('\r')
+  // Select the top model
+  sendKey(mounted.stdin, '\r')
 
-  await waitForCondition(() => onDone.mock.calls.length > 0)
+  await waitForCondition(() => onDone.mock.calls.length > 0, { flush: mounted.flush })
 
   expect(addProviderProfile).toHaveBeenCalled()
   expect(addProviderProfile.mock.calls[0]?.[0]).toMatchObject({
@@ -567,7 +622,13 @@ test('ProviderManager first-run Codex OAuth switches the current session after l
       addProviderProfile,
       applySavedProfileToCurrentSession,
       useCodexOAuthFlow: ({ onAuthenticated }) => {
+        const hasAuthenticated = React.useRef(false)
+
         React.useEffect(() => {
+          if (hasAuthenticated.current) {
+            return
+          }
+          hasAuthenticated.current = true
           void onAuthenticated({
             accessToken: 'oauth-access-token',
             refreshToken: 'oauth-refresh-token',
@@ -594,17 +655,16 @@ test('ProviderManager first-run Codex OAuth switches the current session after l
   await waitForFrameOutput(
     mounted.getOutput,
     frame => frame.includes('Set up provider') && frame.includes('Codex OAuth'),
+    mounted.flush,
   )
 
-  mounted.stdin.write('j')
-  await Bun.sleep(25)
-  mounted.stdin.write('j')
-  await Bun.sleep(25)
-  mounted.stdin.write('j')
-  await Bun.sleep(25)
-  mounted.stdin.write('\r')
+  // Navigate to Codex OAuth option (index 3)
+  await sendKey(mounted.stdin, 'j', mounted.flush)
+  await sendKey(mounted.stdin, 'j', mounted.flush)
+  await sendKey(mounted.stdin, 'j', mounted.flush)
+  await sendKey(mounted.stdin, '\r', mounted.flush)
 
-  await waitForCondition(() => onDone.mock.calls.length > 0)
+  await waitForCondition(() => onDone.mock.calls.length > 0, { flush: mounted.flush })
 
   expect(addProviderProfile).toHaveBeenCalledWith(
     expect.objectContaining({
@@ -664,7 +724,13 @@ test('ProviderManager first-run Codex OAuth reports next-startup fallback when s
       addProviderProfile,
       applySavedProfileToCurrentSession,
       useCodexOAuthFlow: ({ onAuthenticated }) => {
+        const hasAuthenticated = React.useRef(false)
+
         React.useEffect(() => {
+          if (hasAuthenticated.current) {
+            return
+          }
+          hasAuthenticated.current = true
           void onAuthenticated({
             accessToken: 'oauth-access-token',
             refreshToken: 'oauth-refresh-token',
@@ -691,17 +757,16 @@ test('ProviderManager first-run Codex OAuth reports next-startup fallback when s
   await waitForFrameOutput(
     mounted.getOutput,
     frame => frame.includes('Set up provider') && frame.includes('Codex OAuth'),
+    mounted.flush,
   )
 
-  mounted.stdin.write('j')
-  await Bun.sleep(25)
-  mounted.stdin.write('j')
-  await Bun.sleep(25)
-  mounted.stdin.write('j')
-  await Bun.sleep(25)
-  mounted.stdin.write('\r')
+  // Navigate to Codex OAuth option (index 3)
+  await sendKey(mounted.stdin, 'j', mounted.flush)
+  await sendKey(mounted.stdin, 'j', mounted.flush)
+  await sendKey(mounted.stdin, 'j', mounted.flush)
+  await sendKey(mounted.stdin, '\r', mounted.flush)
 
-  await waitForCondition(() => onDone.mock.calls.length > 0)
+  await waitForCondition(() => onDone.mock.calls.length > 0, { flush: mounted.flush })
 
   expect(persistCredentials).toHaveBeenCalledWith({
     profileId: 'provider_codex_oauth',
@@ -790,17 +855,16 @@ test('ProviderManager does not hijack a manual Codex profile when OAuth credenti
   await waitForFrameOutput(
     mounted.getOutput,
     frame => frame.includes('Set up provider') && frame.includes('Codex OAuth'),
+    mounted.flush,
   )
 
-  mounted.stdin.write('j')
-  await Bun.sleep(25)
-  mounted.stdin.write('j')
-  await Bun.sleep(25)
-  mounted.stdin.write('j')
-  await Bun.sleep(25)
-  mounted.stdin.write('\r')
+  // Navigate to Codex OAuth option (index 3)
+  await sendKey(mounted.stdin, 'j', mounted.flush)
+  await sendKey(mounted.stdin, 'j', mounted.flush)
+  await sendKey(mounted.stdin, 'j', mounted.flush)
+  await sendKey(mounted.stdin, '\r', mounted.flush)
 
-  await waitForCondition(() => onDone.mock.calls.length > 0)
+  await waitForCondition(() => onDone.mock.calls.length > 0, { flush: mounted.flush })
 
   expect(addProviderProfile).toHaveBeenCalledTimes(1)
   expect(updateProviderProfile).not.toHaveBeenCalled()
@@ -857,25 +921,26 @@ test('ProviderManager keeps Codex OAuth as next-startup only when activating the
       frame.includes('Provider manager') &&
       frame.includes('Set active provider') &&
       frame.includes('Log out Codex OAuth'),
+    mounted.flush,
   )
 
-  mounted.stdin.write('j')
-  await Bun.sleep(25)
-  mounted.stdin.write('\r')
+  await sendKey(mounted.stdin, 'j', mounted.flush)
+  await sendKey(mounted.stdin, '\r', mounted.flush)
 
   await waitForFrameOutput(
     mounted.getOutput,
     frame => frame.includes('Set active provider') && frame.includes('Codex OAuth'),
+    mounted.flush,
   )
 
-  await Bun.sleep(25)
-  mounted.stdin.write('\r')
+  await sendKey(mounted.stdin, '\r', mounted.flush)
 
-  await waitForCondition(() => setActiveProviderProfile.mock.calls.length > 0)
+  await waitForCondition(() => setActiveProviderProfile.mock.calls.length > 0, { flush: mounted.flush })
   await waitForCondition(
     () => applySavedProfileToCurrentSession.mock.calls.length > 0,
+    { flush: mounted.flush },
   )
-  await Bun.sleep(50)
+  mounted.flush()
   const output = stripAnsi(extractLastFrame(mounted.getOutput()))
 
   expect(output).toContain(
