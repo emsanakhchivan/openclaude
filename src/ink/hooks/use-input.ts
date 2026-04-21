@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect } from 'react'
+import { useLayoutEffect } from 'react'
 import { useEventCallback } from 'usehooks-ts'
 import type { InputEvent, Key } from '../events/input-event.js'
 import useStdin from './use-stdin.js'
@@ -80,7 +80,12 @@ const useInput = (inputHandler: Handler, options: Options = {}) => {
     }
   })
 
-  useEffect(() => {
+  // useLayoutEffect (not useEffect) so the listener is attached
+  // synchronously during the commit phase, before any stdin data can be
+  // processed. With useEffect the listener is deferred via React's
+  // scheduler (setTimeout), creating a window where stdin has a handler
+  // but the EventEmitter has no listeners — key events are lost.
+  useLayoutEffect(() => {
     internal_eventEmitter?.on('input', handleData)
 
     return () => {

@@ -121,14 +121,23 @@ async function waitForCondition(
  * Phase 5 (yield): any cascading microtasks from effect-triggered work settle
  */
 /**
- * Send a key to stdin. The caller is responsible for waiting for the
- * resulting render via waitForFrameOutput or waitForCondition.
+ * Send a key to stdin and let the event loop settle before the caller
+ * inspects the result.
+ *
+ * Bun.sleep(1) is required instead of Bun.sleep(0): Bun.sleep(0) creates
+ * a setTimeout(resolve, 0) that resolves before other pending
+ * setTimeout(fn, 0) callbacks, so React's scheduler never gets a chance
+ * to flush passive effects. Bun.sleep(1) yields long enough for
+ * setTimeout-based scheduling to fire.
  */
-function sendKey(
+async function sendKey(
   stdin: PassThrough,
   key: string,
-): void {
+  flush?: () => void,
+): Promise<void> {
   stdin.write(key)
+  await Bun.sleep(1)
+  flush?.()
 }
 
 function createDeferred<T>(): {
@@ -317,6 +326,12 @@ async function waitForFrameOutput(
     return predicate(output)
   }, { timeoutMs, flush })
 
+  // Extra settle: the predicate matched on a rendered frame, but passive
+  // effects (useEffect) triggered by that render may not have fired yet.
+  await Bun.sleep(1)
+  flush?.()
+  await Bun.sleep(1)
+
   return output
 }
 
@@ -349,13 +364,8 @@ async function mountProviderManager(
     patchConsole: false,
   })
 
-  // Restore after Ink instance is created (it already read the env)
-  if (prevDataStdin === undefined) {
-    delete process.env.OPENCLAUDE_USE_DATA_STDIN
-  } else {
-    process.env.OPENCLAUDE_USE_DATA_STDIN = prevDataStdin
-  }
-
+  // App's class field initializer runs during root.render(), not during
+  // createRoot(). Keep the env var set through render so Ink reads data mode.
   root.render(
     <AppStateProvider>
       <KeybindingSetup>
@@ -366,6 +376,13 @@ async function mountProviderManager(
       </KeybindingSetup>
     </AppStateProvider>,
   )
+
+  // Now restore — Ink has already read the env during construction
+  if (prevDataStdin === undefined) {
+    delete process.env.OPENCLAUDE_USE_DATA_STDIN
+  } else {
+    process.env.OPENCLAUDE_USE_DATA_STDIN = prevDataStdin
+  }
 
   return {
     stdin,
@@ -411,7 +428,7 @@ async function renderProviderManagerFrame(
   return output
 }
 
-afterEach(() => {
+afterEach(async () => {
   mock.restore()
 
   for (const [key, value] of Object.entries(ORIGINAL_ENV)) {
@@ -421,6 +438,11 @@ afterEach(() => {
       process.env[key as keyof typeof ORIGINAL_ENV] = value
     }
   }
+
+  // Let pending effects / timers from the just-unmounted component drain
+  // before the next test re-mocks modules.
+  await Bun.sleep(1)
+  await Bun.sleep(1)
 })
 
 test('ProviderManager resolves GitHub virtual provider from async storage without sync reads in render flow', async () => {
@@ -555,8 +577,8 @@ test('ProviderManager first-run Ollama preset auto-detects installed models', as
   )
 
   // Navigate down to Ollama preset and select it
-  sendKey(mounted.stdin, 'j')
-  sendKey(mounted.stdin, '\r')
+  await sendKey(mounted.stdin, 'j', mounted.flush)
+  await sendKey(mounted.stdin, '\r', mounted.flush)
 
   const modelFrame = await waitForFrameOutput(
     mounted.getOutput,
@@ -571,7 +593,7 @@ test('ProviderManager first-run Ollama preset auto-detects installed models', as
   expect(modelFrame).toContain('gemma4:31b-cloud')
 
   // Select the top model
-  sendKey(mounted.stdin, '\r')
+  await sendKey(mounted.stdin, '\r', mounted.flush)
 
   await waitForCondition(() => onDone.mock.calls.length > 0, { flush: mounted.flush })
 
@@ -940,8 +962,12 @@ test('ProviderManager keeps Codex OAuth as next-startup only when activating the
     () => applySavedProfileToCurrentSession.mock.calls.length > 0,
     { flush: mounted.flush },
   )
-  mounted.flush()
-  const output = stripAnsi(extractLastFrame(mounted.getOutput()))
+  // Wait for the activation result to appear in the rendered output
+  const output = await waitForFrameOutput(
+    mounted.getOutput,
+    frame => frame.includes('Active provider: Codex OAuth'),
+    mounted.flush,
+  )
 
   expect(output).toContain(
     'Active provider: Codex OAuth. Saved for next startup. Warning: validation failed.',
