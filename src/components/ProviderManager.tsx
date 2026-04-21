@@ -398,22 +398,11 @@ export function ProviderManager({ mode, onDone }: Props): React.ReactNode {
   // Deferred initialization: useState initializers run synchronously during
   // render, so getProviderProfiles() and getActiveProviderProfile() would block
   // the UI (sync file I/O). Defer to queueMicrotask after first render.
-  // In test environment, skip defer to avoid timing issues with mocks.
-  const [isInitializing, setIsInitializing] = React.useState(
-    process.env.NODE_ENV !== 'test',
-  )
+  const [isInitializing, setIsInitializing] = React.useState(true)
   const [isActivating, setIsActivating] = React.useState(false)
   const isRefreshingRef = React.useRef(false)
 
   React.useEffect(() => {
-    // Skip deferred initialization in test environment (mocks are synchronous)
-    if (process.env.NODE_ENV === 'test') {
-      setProfiles(getProviderProfiles())
-      setActiveProfileId(getActiveProviderProfile()?.id)
-      setIsInitializing(false)
-      return
-    }
-
     queueMicrotask(() => {
       const profilesData = getProviderProfiles()
       const activeId = getActiveProviderProfile()?.id

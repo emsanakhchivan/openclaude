@@ -275,6 +275,10 @@ async function waitForFrameOutput(
 
   await waitForCondition(() => {
     output = stripAnsi(extractLastFrame(getOutput()))
+    // ProviderManager now shows loading state before content, skip loading frames
+    if (output.includes('Loading providers') || output.includes('Activating provider')) {
+      return false
+    }
     return predicate(output)
   }, { timeoutMs })
 
@@ -339,11 +343,13 @@ async function renderProviderManagerFrame(
   const mounted = await mountProviderManager(ProviderManager, {
     mode: options?.mode,
   })
+
+  // waitForFrameOutput now skips loading/activating frames by default
   const output = await waitForFrameOutput(
     mounted.getOutput,
     frame => {
       if (!options?.waitForOutput) {
-        return frame.includes('Provider manager')
+        return frame.includes('Provider manager') || frame.includes('Set up provider')
       }
       return options.waitForOutput(frame)
     },
