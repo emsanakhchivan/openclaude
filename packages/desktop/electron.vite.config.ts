@@ -10,7 +10,7 @@ export default defineConfig({
         entry: resolve(__dirname, "src/main/index.ts"),
       },
       rollupOptions: {
-        external: ["electron", "better-sqlite3", "superjson"],
+        external: ["electron", "better-sqlite3", "trpc-electron", "superjson"],
         output: {
           format: "cjs",
         },
@@ -24,7 +24,7 @@ export default defineConfig({
         entry: resolve(__dirname, "src/preload/index.ts"),
       },
       rollupOptions: {
-        external: ["electron"],
+        external: ["electron", "trpc-electron"],
         output: {
           format: "cjs",
         },

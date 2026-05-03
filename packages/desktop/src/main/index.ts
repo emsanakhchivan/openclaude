@@ -1,10 +1,12 @@
 import { app, BrowserWindow, shell } from "electron"
 import { join } from "path"
 import { electronApp, optimizer, is } from "@electron-toolkit/utils"
+import { createIPCHandler } from "trpc-electron/main"
+import { createAppRouter } from "./ipc"
 
 let mainWindow: BrowserWindow | null = null
 
-function createWindow(): void {
+function createWindow(): BrowserWindow {
   mainWindow = new BrowserWindow({
     width: 1280,
     height: 800,
@@ -34,6 +36,8 @@ function createWindow(): void {
   } else {
     mainWindow.loadFile(join(__dirname, "../renderer/index.html"))
   }
+
+  return mainWindow
 }
 
 app.whenReady().then(() => {
@@ -43,14 +47,35 @@ app.whenReady().then(() => {
     optimizer.watchWindowShortcuts(window)
   })
 
-  createWindow()
+  // Create window first
+  const win = createWindow()
+
+  // Initialize tRPC IPC handler after window creation
+  if (win) {
+    const appRouter = createAppRouter()
+    createIPCHandler({
+      router: appRouter,
+      windows: [win],
+    })
+  }
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) {
-      createWindow()
+      const newWin = createWindow()
+      if (newWin) {
+        createIPCHandler({
+          router: createAppRouter(),
+          windows: [newWin],
+        })
+      }
     }
   })
 })
+
+/** Get the main window for tRPC context (exported for ipc module) */
+export function getMainWindow(): BrowserWindow | null {
+  return mainWindow
+}
 
 app.on("window-all-closed", () => {
   if (process.platform !== "darwin") {
