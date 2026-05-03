@@ -24,7 +24,7 @@ export default defineConfig({
         entry: resolve(__dirname, "src/preload/index.ts"),
       },
       rollupOptions: {
-        external: ["electron", "trpc-electron"],
+        external: ["electron", /^trpc-electron/],
         output: {
           format: "cjs",
         },
