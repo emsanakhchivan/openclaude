@@ -14,6 +14,9 @@ function AppShell() {
   const version = trpc.app.getVersion.useQuery()
   const platform = trpc.app.getPlatform.useQuery()
 
+  const isLoading = version.isLoading || platform.isLoading
+  const hasError = version.error || platform.error
+
   return (
     <div className="app-shell">
       <header className="app-header">
@@ -23,8 +26,24 @@ function AppShell() {
         )}
       </header>
       <main className="app-main">
-        {version.isLoading || platform.isLoading ? (
-          <p>Connecting...</p>
+        {hasError ? (
+          <div className="error-state">
+            <p>Connection failed</p>
+            <p className="error-detail">
+              {version.error?.message || platform.error?.message || "Unknown error"}
+            </p>
+            <button
+              className="retry-btn"
+              onClick={() => {
+                version.refetch()
+                platform.refetch()
+              }}
+            >
+              Retry
+            </button>
+          </div>
+        ) : isLoading ? (
+          <p>Loading...</p>
         ) : (
           <div className="connected">
             <p>tRPC connected</p>
