@@ -2,12 +2,10 @@ import { app, BrowserWindow, shell } from "electron"
 import { join } from "path"
 import { electronApp, optimizer, is } from "@electron-toolkit/utils"
 import { createIPCHandler } from "trpc-electron/main"
-import { createAppRouter } from "./ipc"
-
-let mainWindow: BrowserWindow | null = null
+import { createAppRouter, createContext, setMainWindow } from "./ipc"
 
 function createWindow(): BrowserWindow {
-  mainWindow = new BrowserWindow({
+  const mainWindow = new BrowserWindow({
     width: 1280,
     height: 800,
     minWidth: 900,
@@ -23,7 +21,7 @@ function createWindow(): BrowserWindow {
   })
 
   mainWindow.on("ready-to-show", () => {
-    mainWindow?.show()
+    mainWindow.show()
   })
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
@@ -40,6 +38,24 @@ function createWindow(): BrowserWindow {
   return mainWindow
 }
 
+let ipcHandlerAttached = false
+let ipcHandler: ReturnType<typeof createIPCHandler> | null = null
+
+function attachIPCHandler(win: BrowserWindow): void {
+  setMainWindow(win)
+  if (!ipcHandlerAttached) {
+    const appRouter = createAppRouter()
+    ipcHandler = createIPCHandler({
+      router: appRouter,
+      createContext,
+      windows: [win],
+    })
+    ipcHandlerAttached = true
+  } else {
+    ipcHandler?.attachWindow(win)
+  }
+}
+
 app.whenReady().then(() => {
   electronApp.setAppUserModelId("dev.openclaude.desktop")
 
@@ -47,37 +63,22 @@ app.whenReady().then(() => {
     optimizer.watchWindowShortcuts(window)
   })
 
-  // Create window first
   const win = createWindow()
-
-  // Initialize tRPC IPC handler after window creation
-  if (win) {
-    const appRouter = createAppRouter()
-    createIPCHandler({
-      router: appRouter,
-      windows: [win],
-    })
-  }
+  attachIPCHandler(win)
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) {
       const newWin = createWindow()
-      if (newWin) {
-        createIPCHandler({
-          router: createAppRouter(),
-          windows: [newWin],
-        })
-      }
+      attachIPCHandler(newWin)
     }
   })
+}).catch((err) => {
+  console.error("Failed to start app:", err)
+  app.quit()
 })
 
-/** Get the main window for tRPC context (exported for ipc module) */
-export function getMainWindow(): BrowserWindow | null {
-  return mainWindow
-}
-
 app.on("window-all-closed", () => {
+  setMainWindow(null)
   if (process.platform !== "darwin") {
     app.quit()
   }

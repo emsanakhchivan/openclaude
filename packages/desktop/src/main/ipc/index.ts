@@ -8,3 +8,5 @@ export function createAppRouter() {
 }
 
 export type AppRouter = ReturnType<typeof createAppRouter>
+
+export { createContext, setMainWindow } from "./createContext"
