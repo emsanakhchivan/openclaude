@@ -1,6 +1,7 @@
 import { defineConfig, externalizeDepsPlugin } from "electron-vite"
 import { resolve } from "path"
 import react from "@vitejs/plugin-react"
+import tailwindcss from "@tailwindcss/vite"
 import { cspTransform } from "./vite-plugins/csp-transform"
 
 export default defineConfig({
@@ -33,7 +34,7 @@ export default defineConfig({
     },
   },
   renderer: {
-    plugins: [react(), cspTransform()],
+    plugins: [react(), tailwindcss(), cspTransform()],
     resolve: {
       alias: {
         "@": resolve(__dirname, "src/renderer"),

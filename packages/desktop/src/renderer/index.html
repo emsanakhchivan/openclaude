@@ -9,7 +9,6 @@
     />
     <title>OpenClaude Desktop</title>
     <style>
-      /* Splash screen before React hydrates */
       :root {
         --splash-bg: #09090b;
         --splash-text: #fafafa;
@@ -28,31 +27,42 @@
         justify-content: center;
         background: var(--splash-bg);
         z-index: 9999;
-        transition: opacity 150ms ease-out;
+        transition: opacity 400ms ease-out;
       }
-      .splash-text {
-        font-size: 28px;
-        font-weight: 700;
-        letter-spacing: -0.02em;
-        color: var(--splash-text);
-        animation: pulse 1.5s ease-in-out infinite;
-      }
-      #root:not(:empty) + .splash,
-      #root:not(:empty) ~ .splash {
+      .splash.fade-out {
         opacity: 0;
         pointer-events: none;
       }
+      .splash-text {
+        font-size: 32px;
+        font-weight: 700;
+        letter-spacing: -0.03em;
+        color: var(--splash-text);
+        animation: pulse 1.5s ease-in-out infinite;
+      }
       @keyframes pulse {
-        0%, 100% { opacity: 0.4; }
-        50% { opacity: 0.8; }
+        0%, 100% { opacity: 0.3; }
+        50% { opacity: 0.9; }
       }
     </style>
   </head>
   <body>
     <div id="root"></div>
-    <div class="splash">
+    <div class="splash" id="splash">
       <span class="splash-text">OpenClaude</span>
     </div>
+    <script>
+      // Fade out splash once React has mounted
+      window.addEventListener("load", function() {
+        setTimeout(function() {
+          var s = document.getElementById("splash");
+          if (s) {
+            s.classList.add("fade-out");
+            setTimeout(function() { s.remove(); }, 500);
+          }
+        }, 800);
+      });
+    </script>
     <script type="module" src="./main.tsx"></script>
   </body>
 </html>
