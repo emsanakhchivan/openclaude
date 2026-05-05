@@ -272,15 +272,17 @@ function ProfileModal({
             <button
               onClick={() => setIsOffline(!isOffline)}
               className={cn(
-                "relative w-9 h-5 transition-colors",
+                "relative w-10 h-[22px] flex items-center transition-colors px-[2px]",
                 isOffline ? "bg-[var(--color-accent)]" : "bg-[var(--color-muted)]"
               )}
+              style={{ borderRadius: 0 }}
             >
               <div
                 className={cn(
-                  "absolute top-0.5 w-4 h-4 bg-white transition-transform",
-                  isOffline ? "translate-x-4" : "translate-x-0.5"
+                  "w-[18px] h-[18px] bg-white transition-transform duration-150",
+                  isOffline ? "translate-x-[18px]" : "translate-x-0"
                 )}
+                style={{ borderRadius: 0 }}
               />
             </button>
           </div>
@@ -569,17 +571,19 @@ export function ModelsTab() {
                 <button
                   onClick={() => toggleModel(model.id)}
                   className={cn(
-                    "relative w-8 h-4 transition-colors",
+                    "relative w-8 h-[18px] flex items-center transition-colors px-[2px]",
                     enabledModels.has(model.id) ? "bg-[var(--color-accent)]" : "bg-[var(--color-muted)]"
                   )}
+                  style={{ borderRadius: 0 }}
                 >
                   <div
                     className={cn(
-                      "absolute top-0.5 w-3 h-3 bg-white transition-transform",
+                      "w-[14px] h-[14px] bg-white transition-transform duration-150",
                       enabledModels.has(model.id)
-                        ? "translate-x-4"
-                        : "translate-x-0.5"
+                        ? "translate-x-[14px]"
+                        : "translate-x-0"
                     )}
+                    style={{ borderRadius: 0 }}
                   />
                 </button>
               </div>
@@ -610,17 +614,19 @@ export function ModelsTab() {
                 <button
                   onClick={() => toggleModel(model.id)}
                   className={cn(
-                    "relative w-8 h-4 transition-colors",
+                    "relative w-8 h-[18px] flex items-center transition-colors px-[2px]",
                     enabledModels.has(model.id) ? "bg-[var(--color-accent)]" : "bg-[var(--color-muted)]"
                   )}
+                  style={{ borderRadius: 0 }}
                 >
                   <div
                     className={cn(
-                      "absolute top-0.5 w-3 h-3 bg-white transition-transform",
+                      "w-[14px] h-[14px] bg-white transition-transform duration-150",
                       enabledModels.has(model.id)
-                        ? "translate-x-4"
-                        : "translate-x-0.5"
+                        ? "translate-x-[14px]"
+                        : "translate-x-0"
                     )}
+                    style={{ borderRadius: 0 }}
                   />
                 </button>
               </div>
