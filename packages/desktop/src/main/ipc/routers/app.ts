@@ -1,5 +1,6 @@
 import { router, publicProcedure } from "../trpc"
 import { app } from "electron"
+import { getDb } from "../../db/client"
 
 export const appRouter = router({
   /** Get app version */
@@ -16,6 +17,28 @@ export const appRouter = router({
       electronVersion: process.versions.electron,
       chromeVersion: process.versions.chrome,
       nodeVersion: process.versions.node,
+    }
+  }),
+
+  /** Check database health */
+  dbHealth: publicProcedure.query(() => {
+    try {
+      const db = getDb()
+      const tables = db
+        .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE '_%'")
+        .all() as { name: string }[]
+      return {
+        ok: true,
+        tableCount: tables.length,
+        tables: tables.map((t) => t.name),
+      }
+    } catch (err) {
+      return {
+        ok: false,
+        error: err instanceof Error ? err.message : String(err),
+        tableCount: 0,
+        tables: [],
+      }
     }
   }),
 

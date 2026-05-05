@@ -3,6 +3,7 @@ import { join } from "path"
 import { electronApp, optimizer, is } from "@electron-toolkit/utils"
 import { createIPCHandler } from "trpc-electron/main"
 import { createAppRouter, createContext, setMainWindow } from "./ipc"
+import { initDb, closeDb } from "./db/client"
 
 function createWindow(): BrowserWindow {
   const mainWindow = new BrowserWindow({
@@ -59,6 +60,9 @@ function attachIPCHandler(win: BrowserWindow): void {
 app.whenReady().then(() => {
   electronApp.setAppUserModelId("dev.openclaude.desktop")
 
+  // Initialize database
+  initDb()
+
   app.on("browser-window-created", (_, window) => {
     optimizer.watchWindowShortcuts(window)
   })
@@ -79,6 +83,7 @@ app.whenReady().then(() => {
 
 app.on("window-all-closed", () => {
   setMainWindow(null)
+  closeDb()
   if (process.platform !== "darwin") {
     app.quit()
   }
