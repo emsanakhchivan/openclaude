@@ -6,12 +6,17 @@ import { cspTransform } from "./vite-plugins/csp-transform"
 export default defineConfig({
   main: {
     plugins: [externalizeDepsPlugin()],
+    resolve: {
+      alias: {
+        "@gitlawb/openclaude/sdk": resolve(__dirname, "../../dist/sdk.mjs"),
+      },
+    },
     build: {
       lib: {
         entry: resolve(__dirname, "src/main/index.ts"),
       },
       rollupOptions: {
-        external: ["electron", "better-sqlite3", "trpc-electron", "superjson"],
+        external: ["electron", "better-sqlite3", "trpc-electron", "superjson", "@gitlawb/openclaude/sdk"],
         output: {
           format: "cjs",
         },
