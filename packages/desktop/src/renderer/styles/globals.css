@@ -1,7 +1,6 @@
 @import "tailwindcss";
 
 @theme {
-  /* Color palette — 1code-inspired zinc + blue */
   --color-background: oklch(0.141 0.005 285.823);
   --color-foreground: oklch(0.985 0.002 247.839);
   --color-card: oklch(0.141 0.005 285.823);
@@ -21,6 +20,9 @@
   --color-border: oklch(0.269 0.006 286.033);
   --color-input: oklch(0.269 0.006 286.033);
   --color-ring: oklch(0.546 0.245 262.881);
+  --color-sidebar: oklch(0.164 0.006 285.823);
+  --color-sidebar-foreground: oklch(0.552 0.016 285.938);
+  --color-sidebar-active: oklch(0.985 0.002 247.839);
   --radius-sm: 0.25rem;
   --radius-md: 0.375rem;
   --radius-lg: 0.5rem;
@@ -69,12 +71,10 @@ body {
   background: var(--color-muted-foreground);
 }
 
-/* Custom selection */
 ::selection {
   background-color: oklch(0.546 0.245 262.881 / 0.3);
 }
 
-/* Error boundary styles */
 .error-boundary {
   display: flex;
   flex-direction: column;

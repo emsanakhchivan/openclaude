@@ -27,21 +27,21 @@
         justify-content: center;
         background: var(--splash-bg);
         z-index: 9999;
-        transition: opacity 400ms ease-out;
+        transition: opacity 600ms ease-out;
       }
       .splash.fade-out {
         opacity: 0;
         pointer-events: none;
       }
       .splash-text {
-        font-size: 32px;
+        font-size: 36px;
         font-weight: 700;
         letter-spacing: -0.03em;
         color: var(--splash-text);
-        animation: pulse 1.5s ease-in-out infinite;
+        animation: pulse 1.8s ease-in-out infinite;
       }
       @keyframes pulse {
-        0%, 100% { opacity: 0.3; }
+        0%, 100% { opacity: 0.2; }
         50% { opacity: 0.9; }
       }
     </style>
@@ -51,18 +51,6 @@
     <div class="splash" id="splash">
       <span class="splash-text">OpenClaude</span>
     </div>
-    <script>
-      // Fade out splash once React has mounted
-      window.addEventListener("load", function() {
-        setTimeout(function() {
-          var s = document.getElementById("splash");
-          if (s) {
-            s.classList.add("fade-out");
-            setTimeout(function() { s.remove(); }, 500);
-          }
-        }, 800);
-      });
-    </script>
     <script type="module" src="./main.tsx"></script>
   </body>
 </html>

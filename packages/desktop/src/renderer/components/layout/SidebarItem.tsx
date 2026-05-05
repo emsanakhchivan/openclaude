@@ -14,16 +14,16 @@ export function SidebarItem({ icon: Icon, label, active, collapsed, onClick }: S
     <button
       onClick={onClick}
       className={cn(
-        "flex w-full items-center gap-3 rounded-md px-2.5 py-1.5 text-sm transition-colors",
+        "flex w-full items-center gap-3 rounded-md px-2.5 py-[7px] text-[13px] font-medium transition-all duration-150",
         active
-          ? "bg-foreground/10 text-foreground"
-          : "text-muted-foreground hover:bg-foreground/5 hover:text-foreground",
+          ? "bg-zinc-800 text-zinc-100"
+          : "text-zinc-500 hover:bg-zinc-800/60 hover:text-zinc-300",
         collapsed && "justify-center px-0"
       )}
       title={collapsed ? label : undefined}
     >
-      <Icon className="h-4 w-4 shrink-0" />
-      {!collapsed && <span className="truncate">{label}</span>}
+      <Icon className="h-[18px] w-[18px] shrink-0" />
+      {!collapsed && <span>{label}</span>}
     </button>
   )
 }

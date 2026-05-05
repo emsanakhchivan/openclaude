@@ -2,12 +2,12 @@ import { Wrench } from "lucide-react"
 
 export function McpPage() {
   return (
-    <div className="flex h-full flex-col items-center justify-center gap-4 text-muted-foreground">
-      <Wrench className="h-12 w-12 opacity-20" />
-      <div className="text-center">
-        <h2 className="text-lg font-medium text-foreground">MCP Servers</h2>
-        <p className="mt-1 text-sm">MCP server management coming in Wave 3</p>
+    <div className="flex h-full flex-col items-center justify-center gap-3">
+      <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-zinc-900">
+        <Wrench className="h-7 w-7 text-zinc-600" />
       </div>
+      <h2 className="text-lg font-medium text-zinc-300">MCP Servers</h2>
+      <p className="text-sm text-zinc-600">MCP management coming in Wave 3</p>
     </div>
   )
 }

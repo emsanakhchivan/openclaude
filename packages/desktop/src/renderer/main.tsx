@@ -8,9 +8,11 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
   </ErrorBoundary>,
 )
 
-// Remove splash screen after React mounts
+// Remove splash screen after a delay so user sees it
 const splash = document.getElementById("splash")
 if (splash) {
-  splash.classList.add("fade-out")
-  setTimeout(() => splash.remove(), 500)
+  setTimeout(() => {
+    splash.classList.add("fade-out")
+    setTimeout(() => splash.remove(), 600)
+  }, 1500)
 }

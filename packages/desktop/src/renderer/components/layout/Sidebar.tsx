@@ -6,10 +6,11 @@ import {
   BarChart3,
   Code2,
   Settings,
+  PanelLeftClose,
+  PanelLeft,
 } from "lucide-react"
 import { Logo } from "../Logo"
 import { SidebarItem } from "./SidebarItem"
-import { Separator } from "../ui/separator"
 import { useAppStore } from "../../stores/app"
 import { cn } from "../../lib/utils"
 
@@ -31,19 +32,30 @@ export function Sidebar() {
   return (
     <aside
       className={cn(
-        "flex h-full flex-col border-r border-border bg-background transition-all duration-200",
+        "flex h-full flex-col shrink-0 border-r border-zinc-800 bg-zinc-950 transition-all duration-200",
         sidebarCollapsed ? "w-[52px]" : "w-[240px]"
       )}
     >
-      {/* Header with logo */}
-      <div className="flex h-9 items-center gap-2 px-3">
+      {/* Logo header */}
+      <div className="flex h-12 items-center justify-between px-3">
         <Logo collapsed={sidebarCollapsed} />
+        <button
+          onClick={toggleSidebar}
+          className="p-1 rounded text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800 transition-colors"
+        >
+          {sidebarCollapsed ? (
+            <PanelLeft className="h-4 w-4" />
+          ) : (
+            <PanelLeftClose className="h-4 w-4" />
+          )}
+        </button>
       </div>
 
-      <Separator />
+      {/* Divider */}
+      <div className="h-px bg-zinc-800 mx-2" />
 
       {/* Navigation */}
-      <nav className="flex-1 space-y-0.5 p-1.5">
+      <nav className="flex-1 p-2 space-y-0.5">
         {NAV_ITEMS.map((item) => (
           <SidebarItem
             key={item.path}
@@ -56,10 +68,11 @@ export function Sidebar() {
         ))}
       </nav>
 
-      <Separator />
+      {/* Divider */}
+      <div className="h-px bg-zinc-800 mx-2" />
 
       {/* Footer */}
-      <div className="p-1.5">
+      <div className="p-2">
         <SidebarItem
           icon={Settings}
           label="Settings"

@@ -10,7 +10,7 @@ export function Logo({ collapsed, className }: LogoProps) {
     return (
       <span
         className={cn(
-          "text-lg font-bold tracking-tight text-zinc-100 select-none",
+          "text-sm font-bold tracking-tight text-zinc-100 select-none",
           className
         )}
       >
@@ -22,7 +22,7 @@ export function Logo({ collapsed, className }: LogoProps) {
   return (
     <span
       className={cn(
-        "text-base font-semibold tracking-tight text-zinc-100 select-none",
+        "text-[15px] font-semibold tracking-tight text-zinc-100 select-none",
         className
       )}
     >
