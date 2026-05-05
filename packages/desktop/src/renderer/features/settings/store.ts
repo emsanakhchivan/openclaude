@@ -10,7 +10,6 @@ export const SETTINGS_TABS = [
   "skills",
   "plugins",
   "stats",
-  "monitor",
 ] as const
 
 export type SettingsTab = typeof SETTINGS_TABS[number]

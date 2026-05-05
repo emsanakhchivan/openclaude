@@ -9,7 +9,6 @@ import {
   Sparkles,
   Package,
   BarChart3,
-  Activity,
 } from "lucide-react"
 import { settingsActiveTabAtom, type SettingsTab } from "./store"
 import { BackButton } from "./components/BackButton"
@@ -28,7 +27,6 @@ const ADVANCED_TABS: { id: SettingsTab; icon: typeof Sliders; label: string }[] 
   { id: "skills", icon: Sparkles, label: "Skills" },
   { id: "plugins", icon: Package, label: "Plugins" },
   { id: "stats", icon: BarChart3, label: "Stats" },
-  { id: "monitor", icon: Activity, label: "Monitor" },
 ]
 
 export function SettingsSidebar() {

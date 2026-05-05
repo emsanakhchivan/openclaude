@@ -9,7 +9,6 @@ import { McpTab } from "./tabs/McpTab"
 import { SkillsTab } from "./tabs/SkillsTab"
 import { PluginsTab } from "./tabs/PluginsTab"
 import { StatsTab } from "./tabs/StatsTab"
-import { MonitorTab } from "./tabs/MonitorTab"
 
 export function SettingsContent() {
   const activeTab = useAtomValue(settingsActiveTabAtom)
@@ -34,8 +33,6 @@ export function SettingsContent() {
         return <PluginsTab />
       case "stats":
         return <StatsTab />
-      case "monitor":
-        return <MonitorTab />
       default:
         return <PreferencesTab />
     }
