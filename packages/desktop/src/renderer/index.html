@@ -5,8 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self' ws://localhost:* http://localhost:*; img-src 'self' data: blob: https:;"
+      content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self' ws://localhost:* http://localhost:*; img-src 'self' data: blob: https:;"
     />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <title>OpenClaude Desktop</title>
     <style>
       :root {
@@ -17,7 +20,7 @@
         margin: 0;
         background: var(--splash-bg);
         color: var(--splash-text);
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Inter", sans-serif;
+        font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       }
       .splash {
         position: fixed;
@@ -34,15 +37,18 @@
         pointer-events: none;
       }
       .splash-text {
-        font-size: 36px;
+        font-family: "Outfit", sans-serif;
+        font-size: 40px;
         font-weight: 700;
-        letter-spacing: -0.03em;
-        color: var(--splash-text);
-        animation: pulse 1.8s ease-in-out infinite;
+        letter-spacing: -0.04em;
+        background: linear-gradient(135deg, #ffffff 0%, #a1a1aa 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        animation: splash-pulse 2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
       }
-      @keyframes pulse {
-        0%, 100% { opacity: 0.2; }
-        50% { opacity: 0.9; }
+      @keyframes splash-pulse {
+        0%, 100% { opacity: 0.5; transform: scale(0.98); }
+        50% { opacity: 1; transform: scale(1); }
       }
     </style>
   </head>
@@ -52,5 +58,15 @@
       <span class="splash-text">OpenClaude</span>
     </div>
     <script type="module" src="./main.tsx"></script>
+    <script>
+      // Automatically fade out splash after 2 seconds
+      setTimeout(() => {
+        const splash = document.getElementById('splash');
+        if (splash) {
+          splash.classList.add('fade-out');
+          setTimeout(() => splash.remove(), 600);
+        }
+      }, 2000);
+    </script>
   </body>
 </html>
