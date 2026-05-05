@@ -234,7 +234,16 @@
 }
 
 /* ===== Focus — website style ===== */
-*:focus-visible {
+/* Only apply to interactive elements that don't manage their own focus */
+button:focus-visible,
+a:focus-visible {
   outline: 1px solid var(--color-accent);
   outline-offset: 3px;
+}
+
+/* Input/textarea elements: no outline — components handle their own focus styling */
+textarea:focus,
+input:focus,
+select:focus {
+  outline: none;
 }
