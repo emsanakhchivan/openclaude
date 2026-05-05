@@ -1,3 +1,4 @@
+import { feature } from 'bun:bundle'
 import * as React from 'react'
 
 import { resetCostState } from '../../bootstrap/state.js'
@@ -76,7 +77,7 @@ export async function call(
           context.setAppState,
         )
 
-        if (true) {
+        if (feature('TRANSCRIPT_CLASSIFIER')) {
           resetAutoModeGateCheck()
           void checkAndDisableAutoModeIfNeeded(
             appState.toolPermissionContext,

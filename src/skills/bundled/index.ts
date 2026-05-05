@@ -1,3 +1,4 @@
+import { feature } from 'bun:bundle'
 import { shouldAutoEnableClaudeInChrome } from 'src/utils/claudeInChrome/setup.js'
 import { registerBatchSkill } from './batch.js'
 import { registerClaudeInChromeSkill } from './claudeInChrome.js'
@@ -22,13 +23,13 @@ export function initBundledSkills(): void {
   registerDebugSkill()
   registerSimplifySkill()
   registerBatchSkill()
-  if (false || false) {
+  if (feature('KAIROS') || feature('KAIROS_DREAM')) {
     /* eslint-disable @typescript-eslint/no-require-imports */
     const { registerDreamSkill } = require('./dream.js')
     /* eslint-enable @typescript-eslint/no-require-imports */
     registerDreamSkill()
   }
-  if (false) {
+  if (feature('REVIEW_ARTIFACT')) {
     /* eslint-disable @typescript-eslint/no-require-imports */
     const { registerHunterSkill } = require('./hunter.js')
     /* eslint-enable @typescript-eslint/no-require-imports */
@@ -38,7 +39,7 @@ export function initBundledSkills(): void {
   // unconditionally so the static import is bundled; visibility is gated
   // at runtime by the isEnabled callback.
   registerLoopSkill()
-  if (false) {
+  if (feature('AGENT_TRIGGERS_REMOTE')) {
     /* eslint-disable @typescript-eslint/no-require-imports */
     const {
       registerScheduleRemoteAgentsSkill,
@@ -46,7 +47,7 @@ export function initBundledSkills(): void {
     /* eslint-enable @typescript-eslint/no-require-imports */
     registerScheduleRemoteAgentsSkill()
   }
-  if (false) {
+  if (feature('BUILDING_CLAUDE_APPS')) {
     /* eslint-disable @typescript-eslint/no-require-imports */
     const { registerClaudeApiSkill } = require('./claudeApi.js')
     /* eslint-enable @typescript-eslint/no-require-imports */
@@ -55,7 +56,7 @@ export function initBundledSkills(): void {
   if (shouldAutoEnableClaudeInChrome()) {
     registerClaudeInChromeSkill()
   }
-  if (false) {
+  if (feature('RUN_SKILL_GENERATOR')) {
     /* eslint-disable @typescript-eslint/no-require-imports */
     const { registerRunSkillGeneratorSkill } = require('./runSkillGenerator.js')
     /* eslint-enable @typescript-eslint/no-require-imports */

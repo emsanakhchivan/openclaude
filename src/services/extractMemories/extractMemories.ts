@@ -13,6 +13,7 @@
  * initExtractMemories() in beforeEach to get a fresh closure.
  */
 
+import { feature } from 'bun:bundle'
 import { basename } from 'path'
 import { getIsRemoteMode } from '../../bootstrap/state.js'
 import type { CanUseToolFn } from '../../hooks/useCanUseTool.js'
@@ -61,7 +62,7 @@ import {
 } from './prompts.js'
 
 /* eslint-disable @typescript-eslint/no-require-imports */
-const teamMemPaths = true
+const teamMemPaths = feature('TEAMMEM')
   ? (require('../../memdir/teamMemPaths.js') as typeof import('../../memdir/teamMemPaths.js'))
   : null
 /* eslint-enable @typescript-eslint/no-require-imports */
@@ -358,7 +359,7 @@ export function initExtractMemories(): void {
       return
     }
 
-    const teamMemoryEnabled = true
+    const teamMemoryEnabled = feature('TEAMMEM')
       ? teamMemPaths!.isTeamMemoryEnabled()
       : false
 
@@ -399,7 +400,7 @@ export function initExtractMemories(): void {
       )
 
       const userPrompt =
-        true && teamMemoryEnabled
+        feature('TEAMMEM') && teamMemoryEnabled
           ? buildExtractCombinedPrompt(
               newMessageCount,
               existingMemories,
@@ -464,7 +465,7 @@ export function initExtractMemories(): void {
       const memoryPaths = writtenPaths.filter(
         p => basename(p) !== ENTRYPOINT_NAME,
       )
-      const teamCount = true
+      const teamCount = feature('TEAMMEM')
         ? count(memoryPaths, teamMemPaths!.isTeamMemPath)
         : 0
 
@@ -488,7 +489,7 @@ export function initExtractMemories(): void {
       )
       if (memoryPaths.length > 0) {
         const msg = createMemorySavedMessage(memoryPaths)
-        if (true) {
+        if (feature('TEAMMEM')) {
           msg.teamCount = teamCount
         }
         appendSystemMessage?.(msg)

@@ -1,4 +1,5 @@
 import { c as _c } from "react-compiler-runtime";
+import { feature } from 'bun:bundle';
 import * as React from 'react';
 import { Box, Text } from '../ink.js';
 import type { ContextData } from '../utils/analyzeContext.js';
@@ -19,7 +20,7 @@ const RESERVED_CATEGORY_NAME = 'Autocompact buffer';
  */
 function CollapseStatus() {
   const $ = _c(2);
-  if (false) {
+  if (feature("CONTEXT_COLLAPSE")) {
     let t0;
     let t1;
     if ($[0] === Symbol.for("react.memo_cache_sentinel")) {

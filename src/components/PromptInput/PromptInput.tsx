@@ -1,3 +1,4 @@
+import { feature } from 'bun:bundle';
 import chalk from 'chalk';
 import * as path from 'path';
 import * as React from 'react';
@@ -330,7 +331,7 @@ function PromptInput({
   // the input bar. viewingAgentTaskId mirrors the gate on both (Spinner.tsx,
   // REPL.tsx) — teammate view falls back to SpinnerWithVerbInner which has
   // its own marginTop, so the gap stays even without ours.
-  const briefOwnsGap = false || false ?
+  const briefOwnsGap = feature('KAIROS') || feature('KAIROS_BRIEF') ?
   // biome-ignore lint/correctness/useHookAtTopLevel: feature() is a compile-time constant
   useAppState(s => s.isBriefOnly) && !viewingAgentTaskId : false;
   const mainLoopModel_ = useAppState(s => s.mainLoopModel);
@@ -530,7 +531,7 @@ function PromptInput({
   const thinkTriggers = useMemo(() => findThinkingTriggerPositions(displayedValue), [displayedValue]);
   const ultraplanSessionUrl = useAppState(s => s.ultraplanSessionUrl);
   const ultraplanLaunching = useAppState(s => s.ultraplanLaunching);
-  const ultraplanTriggers = useMemo(() => false && !ultraplanSessionUrl && !ultraplanLaunching ? findUltraplanTriggerPositions(displayedValue) : [], [displayedValue, ultraplanSessionUrl, ultraplanLaunching]);
+  const ultraplanTriggers = useMemo(() => feature('ULTRAPLAN') && !ultraplanSessionUrl && !ultraplanLaunching ? findUltraplanTriggerPositions(displayedValue) : [], [displayedValue, ultraplanSessionUrl, ultraplanLaunching]);
   const ultrareviewTriggers = useMemo(() => isUltrareviewEnabled() ? findUltrareviewTriggerPositions(displayedValue) : [], [displayedValue]);
   const btwTriggers = useMemo(() => findBtwTriggerPositions(displayedValue), [displayedValue]);
   const buddyTriggers = useMemo(() => findBuddyTriggerPositions(displayedValue), [displayedValue]);
@@ -542,7 +543,7 @@ function PromptInput({
       return hasCommand(commandName, commands);
     });
   }, [displayedValue, commands]);
-  const tokenBudgetTriggers = useMemo(() => true ? findTokenBudgetPositions(displayedValue) : [], [displayedValue]);
+  const tokenBudgetTriggers = useMemo(() => feature('TOKEN_BUDGET') ? findTokenBudgetPositions(displayedValue) : [], [displayedValue]);
   const knownChannelsVersion = useSyncExternalStore(subscribeKnownChannels, getKnownChannelsVersion);
   const slackChannelTriggers = useMemo(() => hasSlackMcpServer(store.getState().mcp.clients) ? findSlackChannelPositions(displayedValue) : [],
   // eslint-disable-next-line react-hooks/exhaustive-deps -- store is a stable ref
@@ -709,7 +710,7 @@ function PromptInput({
     }
 
     // Same rainbow treatment for the ultraplan keyword
-    if (false) {
+    if (feature('ULTRAPLAN')) {
       for (const trigger of ultraplanTriggers) {
         for (let i = trigger.start; i < trigger.end; i++) {
           highlights.push({
@@ -769,7 +770,7 @@ function PromptInput({
     }
   }, [addNotification, removeNotification, thinkTriggers.length]);
   useEffect(() => {
-    if (false && ultraplanTriggers.length) {
+    if (feature('ULTRAPLAN') && ultraplanTriggers.length) {
       addNotification({
         key: 'ultraplan-active',
         text: 'This prompt will launch an ultraplan session in OpenClaude on the web',
@@ -1491,10 +1492,10 @@ function PromptInput({
     // the warning dialog once — the CLI flag should grant carousel access,
     // not bypass the safety text.
     let isEnteringAutoModeFirstTime = false;
-    if (true) {
+    if (feature('TRANSCRIPT_CLASSIFIER')) {
       isEnteringAutoModeFirstTime = nextMode === 'auto' && toolPermissionContext.mode !== 'auto' && !hasAutoModeOptIn() && !viewingAgentTaskId; // Only show for primary agent, not subagents
     }
-    if (true) {
+    if (feature('TRANSCRIPT_CLASSIFIER')) {
       if (isEnteringAutoModeFirstTime) {
         // Store previous mode so we can revert if user declines
         setPreviousModeBeforeAuto(toolPermissionContext.mode);
@@ -1533,7 +1534,7 @@ function PromptInput({
     // carousel", not "decline". Reverting causes a ping-pong loop: auto reverts to
     // the prior mode, whose next mode is auto again, forever.
     // The dialog's own decline button (handleAutoModeOptInDecline) handles revert.
-    if (true) {
+    if (feature('TRANSCRIPT_CLASSIFIER')) {
       if (showAutoModeOptIn || autoModeOptInTimeoutRef.current) {
         if (showAutoModeOptIn) {
           logEvent('tengu_auto_mode_opt_in_dialog_decline', {});
@@ -1593,7 +1594,7 @@ function PromptInput({
 
   // Handler for auto mode opt-in dialog acceptance
   const handleAutoModeOptInAccept = useCallback(() => {
-    if (true) {
+    if (feature('TRANSCRIPT_CLASSIFIER')) {
       setShowAutoModeOptIn(false);
       setPreviousModeBeforeAuto(null);
 
@@ -1622,7 +1623,7 @@ function PromptInput({
 
   // Handler for auto mode opt-in dialog decline
   const handleAutoModeOptInDecline = useCallback(() => {
-    if (true) {
+    if (feature('TRANSCRIPT_CLASSIFIER')) {
       logForDebugging(`[auto-mode] handleAutoModeOptInDecline: reverting to ${previousModeBeforeAuto}, setting isAutoModeAvailable=false`);
       setShowAutoModeOptIn(false);
       if (autoModeOptInTimeoutRef.current) {
@@ -1734,9 +1735,9 @@ function PromptInput({
   // Quick Open / Global Search. Hook calls are unconditional (Rules of Hooks);
   // the handler body is feature()-gated so the setState calls and component
   // references get tree-shaken in external builds.
-  const quickSearchActive = true ? !isModalOverlayActive : false;
+  const quickSearchActive = feature('QUICK_SEARCH') ? !isModalOverlayActive : false;
   useKeybinding('app:quickOpen', () => {
-    if (true) {
+    if (feature('QUICK_SEARCH')) {
       setShowQuickOpen(true);
       setHelpOpen(false);
     }
@@ -1745,7 +1746,7 @@ function PromptInput({
     isActive: quickSearchActive
   });
   useKeybinding('app:globalSearch', () => {
-    if (true) {
+    if (feature('QUICK_SEARCH')) {
       setShowGlobalSearch(true);
       setHelpOpen(false);
     }
@@ -1754,13 +1755,13 @@ function PromptInput({
     isActive: quickSearchActive
   });
   useKeybinding('history:search', () => {
-    if (true) {
+    if (feature('HISTORY_PICKER')) {
       setShowHistoryPicker(true);
       setHelpOpen(false);
     }
   }, {
     context: 'Global',
-    isActive: true ? !isModalOverlayActive : false
+    isActive: feature('HISTORY_PICKER') ? !isModalOverlayActive : false
   });
 
   // Handle Ctrl+C to abort speculation when idle (not loading)
@@ -2154,7 +2155,7 @@ function PromptInput({
   // slot's overflowY:hidden clip (same pattern as SuggestionsOverlay).
   // Must be called before early returns below to satisfy rules-of-hooks.
   // Memoized so the portal useEffect doesn't churn on every PromptInput render.
-  const autoModeOptInDialog = useMemo(() => true && showAutoModeOptIn ? <AutoModeOptInDialog onAccept={handleAutoModeOptInAccept} onDecline={handleAutoModeOptInDecline} /> : null, [showAutoModeOptIn, handleAutoModeOptInAccept, handleAutoModeOptInDecline]);
+  const autoModeOptInDialog = useMemo(() => feature('TRANSCRIPT_CLASSIFIER') && showAutoModeOptIn ? <AutoModeOptInDialog onAccept={handleAutoModeOptInAccept} onDecline={handleAutoModeOptInDecline} /> : null, [showAutoModeOptIn, handleAutoModeOptInAccept, handleAutoModeOptInDecline]);
   useSetPromptOverlayDialog(isFullscreenEnvEnabled() ? autoModeOptInDialog : null);
   if (showBashesDialog) {
     return <BackgroundTasksDialog onDone={() => setShowBashesDialog(false)} toolUseContext={getToolUseContext(messages, [], new AbortController(), mainLoopModel)} initialDetailTaskId={typeof showBashesDialog === 'string' ? showBashesDialog : undefined} />;
@@ -2164,7 +2165,7 @@ function PromptInput({
       setShowTeamsDialog(false);
     }} />;
   }
-  if (true) {
+  if (feature('QUICK_SEARCH')) {
     const insertWithSpacing = (text: string) => {
       const cursorChar = input[cursorOffset - 1] ?? ' ';
       insertTextAtCursor(/\s/.test(cursorChar) ? text : ` ${text}`);
@@ -2176,7 +2177,7 @@ function PromptInput({
       return <GlobalSearchDialog onDone={() => setShowGlobalSearch(false)} onInsert={insertWithSpacing} />;
     }
   }
-  if (true && showHistoryPicker) {
+  if (feature('HISTORY_PICKER') && showHistoryPicker) {
     return <HistorySearchDialog initialQuery={input} onSelect={entry => {
       const entryMode = getModeFromInput(entry.display);
       const value = getValueFromInput(entry.display);

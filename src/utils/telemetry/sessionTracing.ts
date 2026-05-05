@@ -6,10 +6,11 @@
  * interaction span, which contains operation spans (LLM requests, tool calls, etc.).
  *
  * Requirements:
- * - Enhanced telemetry is enabled via false
+ * - Enhanced telemetry is enabled via feature('ENHANCED_TELEMETRY_BETA')
  * - Configure OTEL_TRACES_EXPORTER (console, otlp, etc.)
  */
 
+import { feature } from 'bun:bundle'
 import { context as otelContext, type Span, trace } from '@opentelemetry/api'
 import { AsyncLocalStorage } from 'async_hooks'
 import { getFeatureValue_CACHED_MAY_BE_STALE } from '../../services/analytics/growthbook.js'
@@ -123,7 +124,7 @@ function ensureCleanupInterval(): void {
  * Priority: env var override > ant build > GrowthBook gate
  */
 export function isEnhancedTelemetryEnabled(): boolean {
-  if (false) {
+  if (feature('ENHANCED_TELEMETRY_BETA')) {
     const env =
       process.env.CLAUDE_CODE_ENHANCED_TELEMETRY_BETA ??
       process.env.ENABLE_ENHANCED_TELEMETRY_BETA
