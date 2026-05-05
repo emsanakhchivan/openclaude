@@ -55,7 +55,6 @@ function ModelDropdown({ selected, onSelect }: { selected: string; onSelect: (id
 
 // ─── Mode Dropdown with per-mode colors ─────────────────────────────────────
 const MODES = [
-  { id: "agent", label: "Agent", desc: "Full auto — executes tools" },
   { id: "ask", label: "Ask", desc: "Prompts before every action" },
   { id: "accept-edits", label: "Accept edits", desc: "Auto-approves file edits" },
   { id: "plan", label: "Plan", desc: "Shows plan before executing" },
@@ -64,7 +63,6 @@ const MODES = [
 
 // Focus glow shadow per mode — accent-based
 const MODE_FOCUS_SHADOW: Record<string, string> = {
-  agent: "0 0 0 1px var(--color-line-strong)",
   ask: "0 0 0 1px var(--color-accent-line)",
   "accept-edits": "0 0 0 1px rgba(52,211,153,0.5)",
   plan: "0 0 0 1px rgba(96,165,250,0.5)",
@@ -197,7 +195,6 @@ function InlineDiffBlock({ filename, added, removed }: { filename: string; added
 
 // ─── Input Area with proper focus glow ──────────────────────────────────────
 const MODE_FOCUS_BORDER: Record<string, string> = {
-  agent: "var(--color-line-strong)",
   ask: "var(--color-accent-line)",
   "accept-edits": "rgba(52,211,153,0.6)",
   plan: "rgba(96,165,250,0.6)",
@@ -258,7 +255,7 @@ function InputArea({ selectedMode, setSelectedMode, selectedModel, setSelectedMo
 // ─── Main ChatPage ─────────────────────────────────────────────────────────
 export function ChatPage() {
   const [selectedModel, setSelectedModel] = useState("glm-5")
-  const [selectedMode, setSelectedMode] = useState("agent")
+  const [selectedMode, setSelectedMode] = useState("ask")
   const [activeChat, setActiveChat] = useState("E-Commerce Checkout")
 
   return (
