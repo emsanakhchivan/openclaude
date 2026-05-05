@@ -15,7 +15,8 @@
     "outDir": "./out",
     "rootDir": "./src",
     "paths": {
-      "@/*": ["./src/renderer/*"]
+      "@/*": ["./src/renderer/*"],
+      "@gitlawb/openclaude/sdk": ["../../src/entrypoints/sdk.d.ts"]
     }
   },
   "include": ["src/**/*"],
