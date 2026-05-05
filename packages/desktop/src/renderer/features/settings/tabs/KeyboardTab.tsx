@@ -37,10 +37,10 @@ function ShortcutRow({ shortcut, first }: { shortcut: Shortcut; first?: boolean 
   return (
     <div className={cn(
       "flex items-center justify-between px-5 py-3",
-      !first && "border-t border-zinc-800/50"
+      !first && "border-t border-[var(--color-line)]"
     )}>
-      <span className="text-sm text-zinc-200">{shortcut.action}</span>
-      <kbd className="px-2 py-1 text-xs font-mono bg-zinc-800 rounded text-zinc-300">
+      <span className="text-sm text-[var(--color-foreground)]">{shortcut.action}</span>
+      <kbd className="px-2 py-1 text-xs font-mono bg-[var(--color-muted)] text-[var(--color-ink-2)]">
         {shortcut.keys}
       </kbd>
     </div>

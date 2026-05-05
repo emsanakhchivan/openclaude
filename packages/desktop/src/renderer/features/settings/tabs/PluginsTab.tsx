@@ -50,12 +50,12 @@ export function PluginsTab() {
               onChange={setSearch}
               placeholder="Search plugins..."
             />
-            <button className="h-7 w-7 flex items-center justify-center rounded-md text-zinc-500 hover:text-zinc-300 hover:bg-zinc-100/[0.03]">
+            <button className="h-7 w-7 flex items-center justify-center text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)] hover:bg-[var(--color-sidebar-hover)]">
               <Plus className="h-4 w-4" />
             </button>
           </div>
           <div className="px-3 pt-1 pb-1">
-            <span className="text-xs font-medium text-zinc-600 uppercase tracking-wider">
+            <span className="text-xs font-medium text-[var(--color-quiet)] uppercase tracking-wider">
               Plugins ({MOCK_PLUGINS.length})
             </span>
           </div>
@@ -76,10 +76,10 @@ export function PluginsTab() {
           <div className="p-6 space-y-6">
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="text-sm font-semibold text-zinc-100">{selectedPlugin.name}</h3>
+                <h3 className="text-sm font-semibold text-[var(--color-foreground)]">{selectedPlugin.name}</h3>
                 <div className="flex items-center gap-2 mt-1">
                   <StatusDot status={selectedPlugin.status} />
-                  <span className="text-xs text-zinc-500">
+                  <span className="text-xs text-[var(--color-muted-foreground)]">
                     {selectedPlugin.subtitle} • {selectedPlugin.status === "active" ? "Loaded • 12 skills" : selectedPlugin.status}
                   </span>
                 </div>
@@ -88,42 +88,42 @@ export function PluginsTab() {
 
             <SettingsCard title="Plugin Info">
               <SettingsRow label="Name" last={false}>
-                <span className="text-sm text-zinc-300">{selectedPlugin.name}</span>
+                <span className="text-sm text-[var(--color-ink-2)]">{selectedPlugin.name}</span>
               </SettingsRow>
               <SettingsRow label="Version" last={false}>
-                <span className="text-sm text-zinc-300">5.0.7</span>
+                <span className="text-sm text-[var(--color-ink-2)]">5.0.7</span>
               </SettingsRow>
               <SettingsRow label="Source" last={false}>
-                <span className="text-sm text-zinc-300">Official</span>
+                <span className="text-sm text-[var(--color-ink-2)]">Official</span>
               </SettingsRow>
               <SettingsRow label="Author" last={false}>
-                <span className="text-sm text-zinc-300">Anthropic</span>
+                <span className="text-sm text-[var(--color-ink-2)]">Anthropic</span>
               </SettingsRow>
               <SettingsRow label="Description" last>
-                <span className="text-sm text-zinc-300">Productivity skills for development</span>
+                <span className="text-sm text-[var(--color-ink-2)]">Productivity skills for development</span>
               </SettingsRow>
             </SettingsCard>
 
             <SettingsCard title="Contributed">
               <div className="px-5 py-4 grid grid-cols-3 gap-4">
                 <div>
-                  <span className="text-xs text-zinc-500">Skills</span>
-                  <span className="text-sm font-semibold text-zinc-100 mt-1 block">12</span>
+                  <span className="text-xs text-[var(--color-muted-foreground)]">Skills</span>
+                  <span className="text-sm font-semibold text-[var(--color-foreground)] mt-1 block">12</span>
                 </div>
                 <div>
-                  <span className="text-xs text-zinc-500">Agents</span>
-                  <span className="text-sm font-semibold text-zinc-100 mt-1 block">3</span>
+                  <span className="text-xs text-[var(--color-muted-foreground)]">Agents</span>
+                  <span className="text-sm font-semibold text-[var(--color-foreground)] mt-1 block">3</span>
                 </div>
                 <div>
-                  <span className="text-xs text-zinc-500">Tools</span>
-                  <span className="text-sm font-semibold text-zinc-100 mt-1 block">2</span>
+                  <span className="text-xs text-[var(--color-muted-foreground)]">Tools</span>
+                  <span className="text-sm font-semibold text-[var(--color-foreground)] mt-1 block">2</span>
                 </div>
               </div>
             </SettingsCard>
 
             <SettingsCard title="Skills">
               <div className="px-5 py-4">
-                <div className="text-sm text-zinc-300">
+                <div className="text-sm text-[var(--color-ink-2)]">
                   {MOCK_SKILLS_LIST.map((s, i) => (
                     <span key={i}>
                       • {s}

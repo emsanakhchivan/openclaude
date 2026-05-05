@@ -166,15 +166,15 @@ function ProfileModal({
         onClick={onClose}
       />
       {/* Modal */}
-      <div className="relative w-full max-w-lg mx-4 bg-zinc-900 border border-zinc-800 rounded-xl shadow-2xl">
+      <div className="relative w-full max-w-lg mx-4 bg-popover border border-[var(--color-line)] shadow-2xl">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-800">
-          <h3 className="text-sm font-semibold text-zinc-100">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--color-line)]">
+          <h3 className="text-sm font-semibold text-[var(--color-foreground)]">
             {profile ? "Edit Profile" : "Add Profile"}
           </h3>
           <button
             onClick={onClose}
-            className="p-1 rounded-md text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800 transition-colors"
+            className="p-1 text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)] hover:bg-[var(--color-muted)] transition-colors"
           >
             <X className="h-4 w-4" />
           </button>
@@ -184,20 +184,20 @@ function ProfileModal({
         <div className="px-6 py-4 space-y-4 max-h-[65vh] overflow-y-auto">
           {/* Profile Name */}
           <div>
-            <label className="text-xs text-zinc-400 mb-1 block">
+            <label className="text-xs text-[var(--color-muted-foreground)] mb-1 block">
               Profile Name
             </label>
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g. OpenRouter"
-              className="w-full px-3 py-2 text-sm bg-zinc-800/50 border border-zinc-700 rounded-md text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-zinc-500"
+              className="w-full px-3 py-2 text-sm bg-[var(--color-copy-bg)] border border-[var(--color-line)] text-[var(--color-foreground)] placeholder:text-[var(--color-quiet)]"
             />
           </div>
 
           {/* Endpoint Type */}
           <div>
-            <label className="text-xs text-zinc-400 mb-1 block">
+            <label className="text-xs text-[var(--color-muted-foreground)] mb-1 block">
               Endpoint Type
             </label>
             <div className="flex gap-2">
@@ -207,10 +207,10 @@ function ProfileModal({
                     key={t}
                     onClick={() => setEndpointType(t)}
                     className={cn(
-                      "flex-1 px-3 py-2 text-xs rounded-md border transition-colors",
+                      "flex-1 px-3 py-2 text-xs border transition-colors",
                       endpointType === t
-                        ? "border-zinc-500 bg-zinc-800 text-zinc-100"
-                        : "border-zinc-800 text-zinc-500 hover:text-zinc-300"
+                        ? "border-[var(--color-accent)] bg-[var(--color-muted)] text-[var(--color-foreground)]"
+                        : "border-[var(--color-line)] text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)]"
                     )}
                   >
                     {t === "anthropic"
@@ -224,21 +224,21 @@ function ProfileModal({
 
           {/* Base URL */}
           <div>
-            <label className="text-xs text-zinc-400 mb-1 block">
+            <label className="text-xs text-[var(--color-muted-foreground)] mb-1 block">
               API Endpoint
             </label>
             <input
               value={baseUrl}
               onChange={(e) => setBaseUrl(e.target.value)}
               placeholder="https://api.example.com/v1"
-              className="w-full px-3 py-2 text-sm bg-zinc-800/50 border border-zinc-700 rounded-md text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-zinc-500 font-mono"
+              className="w-full px-3 py-2 text-sm bg-[var(--color-copy-bg)] border border-[var(--color-line)] text-[var(--color-foreground)] placeholder:text-[var(--color-quiet)]"
             />
           </div>
 
           {/* API Key */}
           <div>
-            <label className="text-xs text-zinc-400 mb-1 block">
-              API Key {!isOffline && <span className="text-red-400">*</span>}
+            <label className="text-xs text-[var(--color-muted-foreground)] mb-1 block">
+              API Key {!isOffline && <span className="text-[var(--color-destructive)]">*</span>}
             </label>
             <div className="relative">
               <input
@@ -246,11 +246,11 @@ function ProfileModal({
                 onChange={(e) => setToken(e.target.value)}
                 type={showToken ? "text" : "password"}
                 placeholder={isOffline ? "Not required for local" : "sk-..."}
-                className="w-full px-3 py-2 pr-10 text-sm bg-zinc-800/50 border border-zinc-700 rounded-md text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-zinc-500 font-mono"
+                className="w-full px-3 py-2 pr-10 text-sm bg-[var(--color-copy-bg)] border border-[var(--color-line)] text-[var(--color-foreground)] placeholder:text-[var(--color-quiet)]"
               />
               <button
                 onClick={() => setShowToken(!showToken)}
-                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-zinc-500 hover:text-zinc-300"
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)]"
               >
                 {showToken ? (
                   <EyeOff className="h-3.5 w-3.5" />
@@ -264,21 +264,21 @@ function ProfileModal({
           {/* Offline toggle */}
           <div className="flex items-center justify-between">
             <div>
-              <span className="text-xs text-zinc-400">Local / Offline</span>
-              <p className="text-[10px] text-zinc-600">
+              <span className="text-xs text-[var(--color-muted-foreground)]">Local / Offline</span>
+              <p className="text-[10px] text-[var(--color-quiet)]">
                 For Ollama, LM Studio, etc.
               </p>
             </div>
             <button
               onClick={() => setIsOffline(!isOffline)}
               className={cn(
-                "relative w-9 h-5 rounded-full transition-colors",
-                isOffline ? "bg-zinc-500" : "bg-zinc-700"
+                "relative w-9 h-5 transition-colors",
+                isOffline ? "bg-[var(--color-accent)]" : "bg-[var(--color-muted)]"
               )}
             >
               <div
                 className={cn(
-                  "absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform",
+                  "absolute top-0.5 w-4 h-4 bg-white transition-transform",
                   isOffline ? "translate-x-4" : "translate-x-0.5"
                 )}
               />
@@ -288,12 +288,12 @@ function ProfileModal({
           {/* Models */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <label className="text-xs text-zinc-400">
+              <label className="text-xs text-[var(--color-muted-foreground)]">
                 Models ({models.length})
               </label>
               <button
                 onClick={addModel}
-                className="flex items-center gap-1 text-xs text-zinc-400 hover:text-zinc-200 transition-colors"
+                className="flex items-center gap-1 text-xs text-[var(--color-muted-foreground)] hover:text-[var(--color-accent)] transition-colors"
               >
                 <Plus className="h-3 w-3" />
                 Add Model
@@ -303,7 +303,7 @@ function ProfileModal({
               {models.map((m) => (
                 <div
                   key={m.id}
-                  className="flex items-start gap-2 p-2 bg-zinc-800/30 rounded-md border border-zinc-800/50"
+                  className="flex items-start gap-2 p-2 bg-[var(--color-muted)] border border-[var(--color-line)]"
                 >
                   <div className="flex-1 space-y-1.5">
                     <input
@@ -312,7 +312,7 @@ function ProfileModal({
                         updateModel(m.id, "name", e.target.value)
                       }
                       placeholder="Display name (e.g. GPT-5.5)"
-                      className="w-full px-2.5 py-1.5 text-sm bg-zinc-800/50 border border-zinc-700 rounded-md text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-zinc-500"
+                      className="w-full px-2.5 py-1.5 text-sm bg-[var(--color-copy-bg)] border border-[var(--color-line)] text-[var(--color-foreground)] placeholder:text-[var(--color-quiet)]"
                     />
                     <input
                       value={m.modelId}
@@ -320,25 +320,25 @@ function ProfileModal({
                         updateModel(m.id, "modelId", e.target.value)
                       }
                       placeholder="Model ID (e.g. openai/gpt-5.5)"
-                      className="w-full px-2.5 py-1.5 text-xs bg-zinc-800/50 border border-zinc-700 rounded-md text-zinc-300 font-mono placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-zinc-500"
+                      className="w-full px-2.5 py-1.5 text-xs bg-[var(--color-copy-bg)] border border-[var(--color-line)] text-[var(--color-ink-2)] placeholder:text-[var(--color-quiet)]"
                     />
                   </div>
                   <button
                     onClick={() => removeModel(m.id)}
-                    className="mt-1 p-1 text-zinc-600 hover:text-red-400 transition-colors"
+                    className="mt-1 p-1 text-[var(--color-quiet)] hover:text-[var(--color-destructive)] transition-colors"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
                 </div>
               ))}
               {models.length === 0 && (
-                <div className="py-4 text-center border border-dashed border-zinc-800 rounded-md">
-                  <p className="text-xs text-zinc-600">
+                <div className="py-4 text-center border border-dashed border-[var(--color-line)]">
+                  <p className="text-xs text-[var(--color-quiet)]">
                     No models added yet
                   </p>
                   <button
                     onClick={addModel}
-                    className="mt-2 text-xs text-zinc-500 hover:text-zinc-300 transition-colors"
+                    className="mt-2 text-xs text-[var(--color-muted-foreground)] hover:text-[var(--color-accent)] transition-colors"
                   >
                     + Add your first model
                   </button>
@@ -349,16 +349,16 @@ function ProfileModal({
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end gap-2 px-6 py-4 border-t border-zinc-800">
+        <div className="flex items-center justify-end gap-2 px-6 py-4 border-t border-[var(--color-line)]">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-xs text-zinc-400 hover:text-zinc-200 transition-colors"
+            className="px-4 py-2 text-xs text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)] transition-colors"
           >
             Cancel
           </button>
           <button
             onClick={handleSave}
-            className="px-4 py-2 text-xs font-medium text-zinc-100 bg-zinc-700 hover:bg-zinc-600 rounded-md transition-colors"
+            className="px-4 py-2 text-xs font-medium text-white bg-[var(--color-accent)] hover:bg-[var(--color-accent-2)] transition-colors"
           >
             {profile ? "Save Changes" : "Add Profile"}
           </button>
@@ -386,18 +386,18 @@ function ProfileCard({
     : "Not set"
 
   return (
-    <div className="px-5 py-3 border-t border-zinc-800/50 first:border-t-0">
+    <div className="px-5 py-3 border-t border-[var(--color-line)] first:border-t-0">
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">
-          <span className="text-sm font-medium text-zinc-200">
+          <span className="text-sm font-medium text-[var(--color-foreground)]">
             {profile.name}
           </span>
           {profile.isOffline && (
-            <span className="text-[10px] px-1.5 py-0.5 bg-zinc-800 text-zinc-400 rounded">
+            <span className="text-[10px] px-1.5 py-0.5 bg-[var(--color-muted)] text-[var(--color-accent)]">
               LOCAL
             </span>
           )}
-          <span className="text-[10px] px-1.5 py-0.5 bg-zinc-800/50 text-zinc-500 rounded">
+          <span className="text-[10px] px-1.5 py-0.5 bg-[var(--color-muted)] text-[var(--color-muted-foreground)]">
             {profile.endpointType === "anthropic"
               ? "Anthropic"
               : "OpenAI"}
@@ -406,14 +406,14 @@ function ProfileCard({
         <div className="flex items-center gap-1">
           <button
             onClick={onEdit}
-            className="p-1.5 rounded-md text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800 transition-colors"
+            className="p-1.5 text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)] hover:bg-[var(--color-muted)] transition-colors"
             title="Edit profile"
           >
             <Edit2 className="h-3 w-3" />
           </button>
           <button
             onClick={onDelete}
-            className="p-1.5 rounded-md text-zinc-500 hover:text-red-400 hover:bg-zinc-800 transition-colors"
+            className="p-1.5 text-[var(--color-muted-foreground)] hover:text-[var(--color-destructive)] hover:bg-[var(--color-muted)] transition-colors"
             title="Delete profile"
           >
             <Trash2 className="h-3 w-3" />
@@ -422,16 +422,16 @@ function ProfileCard({
       </div>
 
       {/* API info */}
-      <div className="flex items-center gap-4 text-[11px] text-zinc-500 mb-2">
+      <div className="flex items-center gap-4 text-[11px] text-[var(--color-muted-foreground)] mb-2">
         <div className="flex items-center gap-1">
           <Globe className="h-3 w-3" />
-          <span className="font-mono truncate max-w-[220px]">
+          <span className="truncate max-w-[220px]">
             {profile.baseUrl}
           </span>
         </div>
         <div className="flex items-center gap-1">
           <Key className="h-3 w-3" />
-          <span className="font-mono">{maskedToken}</span>
+          <span>{maskedToken}</span>
         </div>
       </div>
 
@@ -440,11 +440,11 @@ function ProfileCard({
         {profile.models.map((m) => (
           <span
             key={m.id}
-            className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 bg-zinc-800/60 text-zinc-400 rounded-md"
+            className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 bg-[var(--color-muted)] text-[var(--color-muted-foreground)]"
           >
             <Brain className="h-2.5 w-2.5" />
             {m.name}
-            <span className="text-zinc-600 font-mono">{m.modelId}</span>
+            <span className="text-[var(--color-quiet)]">{m.modelId}</span>
           </span>
         ))}
       </div>
@@ -530,7 +530,7 @@ export function ModelsTab() {
         {/* Sign with Codex */}
         <SettingsCard title="Authentication">
           <SettingsRow label="Sign with Codex" description="Login with ChatGPT subscription or API key">
-            <button className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-zinc-200 bg-zinc-800 hover:bg-zinc-700 rounded-md border border-zinc-700 transition-colors">
+            <button className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-[var(--color-foreground)] bg-[var(--color-muted)] hover:bg-[var(--color-sidebar-hover)] border border-[var(--color-line)] transition-colors">
               <Server className="h-3.5 w-3.5" />
               Connect Codex
             </button>
@@ -538,15 +538,15 @@ export function ModelsTab() {
           <SettingsRow label="Anthropic Account" description="OAuth login with Anthropic" last>
             <div className="flex items-center gap-2">
               <StatusDot status="connected" />
-              <span className="text-xs text-zinc-500">Connected</span>
+              <span className="text-xs text-[var(--color-muted-foreground)]">Connected</span>
             </div>
           </SettingsRow>
         </SettingsCard>
 
         {/* Available Models */}
         <SettingsCard title="Available Models">
-          <div className="px-5 py-2 border-b border-zinc-800/50">
-            <span className="text-[10px] text-zinc-500 uppercase tracking-wider">
+          <div className="px-5 py-2 border-b border-[var(--color-line)]">
+            <span className="text-[10px] text-[var(--color-quiet)] uppercase tracking-wider">
               Default — Anthropic
             </span>
           </div>
@@ -555,13 +555,13 @@ export function ModelsTab() {
             .map((model) => (
               <div
                 key={model.id}
-                className="flex items-center justify-between px-5 py-2.5 border-t border-zinc-800/30"
+                className="flex items-center justify-between px-5 py-2.5 border-t border-[var(--color-line)]"
               >
                 <div className="flex items-center gap-2">
-                  <Brain className="h-3.5 w-3.5 text-zinc-500" />
+                  <Brain className="h-3.5 w-3.5 text-[var(--color-quiet)]" />
                   <div>
-                    <span className="text-sm text-zinc-200">{model.name}</span>
-                    <span className="text-[10px] text-zinc-600 ml-2">
+                    <span className="text-sm text-[var(--color-foreground)]">{model.name}</span>
+                    <span className="text-[10px] text-[var(--color-quiet)] ml-2">
                       {model.provider}
                     </span>
                   </div>
@@ -569,13 +569,13 @@ export function ModelsTab() {
                 <button
                   onClick={() => toggleModel(model.id)}
                   className={cn(
-                    "relative w-8 h-4 rounded-full transition-colors",
-                    enabledModels.has(model.id) ? "bg-blue-500" : "bg-zinc-700"
+                    "relative w-8 h-4 transition-colors",
+                    enabledModels.has(model.id) ? "bg-[var(--color-accent)]" : "bg-[var(--color-muted)]"
                   )}
                 >
                   <div
                     className={cn(
-                      "absolute top-0.5 w-3 h-3 rounded-full bg-white transition-transform",
+                      "absolute top-0.5 w-3 h-3 bg-white transition-transform",
                       enabledModels.has(model.id)
                         ? "translate-x-4"
                         : "translate-x-0.5"
@@ -585,8 +585,8 @@ export function ModelsTab() {
               </div>
             ))}
           {profiles.length > 0 && (
-            <div className="px-5 py-2 border-t border-zinc-800/50">
-              <span className="text-[10px] text-zinc-500 uppercase tracking-wider">
+            <div className="px-5 py-2 border-t border-[var(--color-line)]">
+              <span className="text-[10px] text-[var(--color-quiet)] uppercase tracking-wider">
                 Custom Profiles
               </span>
             </div>
@@ -596,13 +596,13 @@ export function ModelsTab() {
             .map((model) => (
               <div
                 key={model.id}
-                className="flex items-center justify-between px-5 py-2.5 border-t border-zinc-800/30"
+                className="flex items-center justify-between px-5 py-2.5 border-t border-[var(--color-line)]"
               >
                 <div className="flex items-center gap-2">
-                  <Brain className="h-3.5 w-3.5 text-zinc-600" />
+                  <Brain className="h-3.5 w-3.5 text-[var(--color-quiet)]" />
                   <div>
-                    <span className="text-sm text-zinc-200">{model.name}</span>
-                    <span className="text-[10px] text-zinc-600 ml-2">
+                    <span className="text-sm text-[var(--color-foreground)]">{model.name}</span>
+                    <span className="text-[10px] text-[var(--color-quiet)] ml-2">
                       via {model.provider}
                     </span>
                   </div>
@@ -610,13 +610,13 @@ export function ModelsTab() {
                 <button
                   onClick={() => toggleModel(model.id)}
                   className={cn(
-                    "relative w-8 h-4 rounded-full transition-colors",
-                    enabledModels.has(model.id) ? "bg-blue-500" : "bg-zinc-700"
+                    "relative w-8 h-4 transition-colors",
+                    enabledModels.has(model.id) ? "bg-[var(--color-accent)]" : "bg-[var(--color-muted)]"
                   )}
                 >
                   <div
                     className={cn(
-                      "absolute top-0.5 w-3 h-3 rounded-full bg-white transition-transform",
+                      "absolute top-0.5 w-3 h-3 bg-white transition-transform",
                       enabledModels.has(model.id)
                         ? "translate-x-4"
                         : "translate-x-0.5"
@@ -637,10 +637,10 @@ export function ModelsTab() {
               onDelete={() => handleDeleteProfile(profile.id)}
             />
           ))}
-          <div className="px-5 py-3 border-t border-zinc-800/50">
+          <div className="px-5 py-3 border-t border-[var(--color-line)]">
             <button
               onClick={openAdd}
-              className="flex items-center gap-1.5 text-xs text-zinc-400 hover:text-zinc-200 transition-colors"
+              className="flex items-center gap-1.5 text-xs text-[var(--color-muted-foreground)] hover:text-[var(--color-accent)] transition-colors"
             >
               <Plus className="h-3.5 w-3.5" />
               Add Profile

@@ -11,12 +11,12 @@ export function SettingsRow({ label, description, children, last }: SettingsRowP
   return (
     <div className={cn(
       "flex items-center justify-between gap-6 px-5 py-3.5",
-      !last && "border-t border-zinc-800/50"
+      !last && "border-t border-[var(--color-line)]"
     )}>
       <div className="flex flex-col gap-1">
-        <span className="text-sm font-medium text-zinc-200">{label}</span>
+        <span className="text-sm font-medium text-[var(--color-foreground)]">{label}</span>
         {description && (
-          <span className="text-xs text-zinc-500">{description}</span>
+          <span className="text-xs text-[var(--color-muted-foreground)]">{description}</span>
         )}
       </div>
       {children}

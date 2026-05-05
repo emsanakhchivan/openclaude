@@ -39,7 +39,7 @@ export function SettingsContent() {
   }
 
   return (
-    <div className="flex-1 h-full overflow-hidden bg-[#09090b]">
+    <div className="flex-1 h-full overflow-hidden bg-background">
       {renderTab()}
     </div>
   )

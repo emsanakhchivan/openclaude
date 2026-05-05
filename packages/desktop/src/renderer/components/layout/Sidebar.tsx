@@ -32,7 +32,7 @@ export function Sidebar() {
   return (
     <aside
       className={cn(
-        "flex h-full flex-col shrink-0 border-r border-zinc-800 bg-[#0c0c0d] transition-all duration-300 ease-in-out relative",
+        "flex h-full flex-col shrink-0 border-r border-[var(--color-line)] bg-sidebar transition-all duration-300 ease-in-out relative",
         sidebarCollapsed ? "w-[52px]" : "w-[240px]"
       )}
     >
@@ -41,23 +41,23 @@ export function Sidebar() {
         {!sidebarCollapsed && <Logo collapsed={false} />}
         <div className={cn("flex items-center", sidebarCollapsed ? "flex-col gap-0.5" : "gap-0.5")}>
           {sidebarCollapsed && (
-            <button onClick={toggleSidebar} className="p-1.5 rounded-md text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800 transition-colors" title="Expand sidebar">
+            <button onClick={toggleSidebar} className="p-1.5 text-[var(--color-quiet)] hover:text-[var(--color-foreground)] hover:bg-[var(--color-sidebar-hover)] transition-colors" title="Expand sidebar">
               <PanelLeft className="h-4 w-4" />
             </button>
           )}
-          <button className="p-1.5 rounded-md text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800 transition-colors" title="New Chat">
+          <button className="p-1.5 text-[var(--color-quiet)] hover:text-[var(--color-accent)] hover:bg-[var(--color-sidebar-hover)] transition-colors" title="New Chat">
             <Plus className="h-4 w-4" />
           </button>
           {!sidebarCollapsed && (
-            <button onClick={toggleSidebar} className="p-1.5 rounded-md text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800 transition-colors" title="Collapse sidebar">
+            <button onClick={toggleSidebar} className="p-1.5 text-[var(--color-quiet)] hover:text-[var(--color-foreground)] hover:bg-[var(--color-sidebar-hover)] transition-colors" title="Collapse sidebar">
               <PanelLeftClose className="h-4 w-4" />
             </button>
           )}
         </div>
       </div>
 
-      {/* Divider */}
-      <div className="h-px bg-zinc-800/60 mx-2 mb-1" />
+      {/* Divider — dashed website style */}
+      <div className="divider-dashed mx-2 mb-1" />
 
       {/* Chat Cards */}
       <nav className="flex-1 overflow-y-auto px-1.5 py-1 space-y-px">
@@ -68,23 +68,23 @@ export function Sidebar() {
               key={chat.id}
               onClick={() => { setActiveChatId(chat.id); navigate("/") }}
               className={cn(
-                "flex w-full items-center rounded-md transition-all duration-150 cursor-pointer group relative",
+                "flex w-full items-center transition-all duration-150 cursor-pointer group relative",
                 sidebarCollapsed ? "justify-center py-2 mx-auto" : "px-2 py-1.5",
                 isActive
-                  ? (sidebarCollapsed ? "bg-zinc-800" : "bg-zinc-100/[0.06]")
-                  : "hover:bg-zinc-100/[0.03]"
+                  ? "bg-[var(--color-muted)] text-[var(--color-sidebar-active)]"
+                  : "hover:bg-[var(--color-sidebar-hover)] text-[var(--color-sidebar-foreground)]"
               )}
             >
               {sidebarCollapsed ? (
-                <div className={cn("h-6 w-6 rounded flex items-center justify-center", isActive ? "text-zinc-200" : "text-zinc-600 group-hover:text-zinc-400")}>
+                <div className={cn("h-6 w-6 flex items-center justify-center", isActive ? "text-[var(--color-foreground)]" : "text-[var(--color-quiet)] group-hover:text-[var(--color-muted-foreground)]")}>
                   <MessageSquare className="h-3.5 w-3.5" />
                 </div>
               ) : (
                 <div className="flex-1 min-w-0">
-                  <span className={cn("truncate block text-[13px]", isActive ? "text-zinc-100 font-medium" : "text-zinc-500 group-hover:text-zinc-300")}>
+                  <span className={cn("truncate block text-[13px]", isActive ? "text-[var(--color-foreground)] font-medium" : "text-[var(--color-muted-foreground)] group-hover:text-[var(--color-foreground)]")}>
                     {chat.name}
                   </span>
-                  <span className="text-[10px] truncate text-zinc-700 block mt-0.5 font-mono">
+                  <span className="text-[10px] truncate text-[var(--color-quiet)] block mt-0.5">
                     {chat.path}
                   </span>
                 </div>
@@ -95,7 +95,7 @@ export function Sidebar() {
       </nav>
 
       {/* Footer */}
-      <div className="px-1.5 pb-3 pt-2 border-t border-zinc-800/60 mt-1">
+      <div className="px-1.5 pb-3 pt-2 divider-dashed mt-1">
         <SidebarItem
           icon={Settings}
           label="Settings"

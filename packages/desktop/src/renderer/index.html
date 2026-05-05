@@ -9,18 +9,19 @@
     />
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&display=swap" rel="stylesheet">
     <title>OpenClaude Desktop</title>
     <style>
-      :root {
-        --splash-bg: #09090b;
-        --splash-text: #fafafa;
-      }
+      /* Theme bootstrap — runs before paint to prevent flash */
+      :root { --splash-bg: #fbfaf7; --splash-text: #1a1208; --hero-glow: #ff7a1a47; }
+      :root[data-theme="dark"] { --splash-bg: #000; --splash-text: #fff; --hero-glow: #ff7a1a38; }
+
       body {
         margin: 0;
         background: var(--splash-bg);
         color: var(--splash-text);
-        font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        font-family: 'Fira Code', SF Mono, 'Fira Mono', 'Roboto Mono', 'Courier New', monospace;
+        -webkit-font-smoothing: antialiased;
       }
       .splash {
         position: fixed;
@@ -37,20 +38,28 @@
         pointer-events: none;
       }
       .splash-text {
-        font-family: "Outfit", sans-serif;
+        font-family: 'Fira Code', SF Mono, monospace;
         font-size: 40px;
         font-weight: 700;
         letter-spacing: -0.04em;
-        background: linear-gradient(135deg, #ffffff 0%, #a1a1aa 100%);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
+        color: var(--splash-text);
+        text-shadow: 0 0 28px var(--hero-glow);
         animation: splash-pulse 2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
       }
       @keyframes splash-pulse {
-        0%, 100% { opacity: 0.5; transform: scale(0.98); }
+        0%, 100% { opacity: 0.6; transform: scale(0.98); }
         50% { opacity: 1; transform: scale(1); }
       }
     </style>
+    <script>
+      // Theme bootstrap — prevent flash of wrong theme
+      (function() {
+        var stored = localStorage.getItem('openclaude-theme');
+        var theme = stored === 'dark' || stored === 'light' ? stored : 'light';
+        document.documentElement.dataset.theme = theme;
+        document.documentElement.style.colorScheme = theme;
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
@@ -60,11 +69,11 @@
     <script type="module" src="./main.tsx"></script>
     <script>
       // Automatically fade out splash after 2 seconds
-      setTimeout(() => {
-        const splash = document.getElementById('splash');
+      setTimeout(function() {
+        var splash = document.getElementById('splash');
         if (splash) {
           splash.classList.add('fade-out');
-          setTimeout(() => splash.remove(), 600);
+          setTimeout(function() { splash.remove(); }, 600);
         }
       }, 2000);
     </script>

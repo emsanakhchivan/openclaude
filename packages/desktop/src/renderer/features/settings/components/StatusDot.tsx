@@ -11,7 +11,7 @@ export function StatusDot({ status }: StatusDotProps) {
         "w-2 h-2 rounded-full shrink-0",
         status === "active" && "bg-green-500",
         status === "connected" && "bg-green-500",
-        status === "inactive" && "bg-zinc-500",
+        status === "inactive" && "bg-[var(--color-quiet)]",
         status === "error" && "bg-red-500",
         status === "pending" && "bg-yellow-500",
         status === "needs-auth" && "bg-yellow-500"

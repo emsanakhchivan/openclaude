@@ -201,16 +201,16 @@ function SummaryCard({
   icon: typeof Brain
 }) {
   return (
-    <div className="bg-zinc-900/40 rounded-lg p-4 border border-zinc-800/30">
+    <div className="bg-[var(--color-card)] p-4 border border-[var(--color-line)]">
       <div className="flex items-center gap-2 mb-2">
-        <Icon className="h-3.5 w-3.5 text-zinc-500" />
-        <div className="text-[10px] text-zinc-500 uppercase tracking-wider">
+        <Icon className="h-3.5 w-3.5 text-[var(--color-quiet)]" />
+        <div className="text-[10px] text-[var(--color-quiet)] uppercase tracking-wider">
           {label}
         </div>
       </div>
-      <div className="text-xl font-semibold text-zinc-100">{value}</div>
+      <div className="text-xl font-semibold text-[var(--color-foreground)]">{value}</div>
       {subValue && (
-        <div className="text-[10px] text-zinc-600 mt-1">{subValue}</div>
+        <div className="text-[10px] text-[var(--color-quiet)] mt-1">{subValue}</div>
       )}
     </div>
   )
@@ -222,19 +222,19 @@ function ModelRow({ usage }: { usage: ModelUsage }) {
   const isLocal = usage.profileName?.includes("Local")
 
   return (
-    <tr className="border-b border-zinc-800/30 hover:bg-zinc-900/30 transition-colors">
+    <tr className="border-b border-[var(--color-line)] hover:bg-[var(--color-muted)] transition-colors">
       <td className="py-3 px-4">
         <div className="flex flex-col">
           <div className="flex items-center gap-2">
-            <Brain className="h-3 w-3 text-zinc-500" />
-            <span className="text-sm font-medium text-zinc-200">
+            <Brain className="h-3 w-3 text-[var(--color-quiet)]" />
+            <span className="text-sm font-medium text-[var(--color-foreground)]">
               {usage.modelName}
             </span>
           </div>
           <span
             className={cn(
               "text-[10px] mt-0.5",
-              isLocal ? "text-zinc-600" : "text-zinc-500"
+              isLocal ? "text-[var(--color-quiet)]" : "text-[var(--color-muted-foreground)]"
             )}
           >
             {usage.provider === "Custom" && usage.profileName
@@ -243,25 +243,25 @@ function ModelRow({ usage }: { usage: ModelUsage }) {
           </span>
         </div>
       </td>
-      <td className="py-3 px-4 text-right font-mono text-xs text-zinc-300">
+      <td className="py-3 px-4 text-right text-xs text-[var(--color-ink-2)]">
         {formatNumber(usage.inputTokens)}
       </td>
-      <td className="py-3 px-4 text-right font-mono text-xs text-zinc-300">
+      <td className="py-3 px-4 text-right text-xs text-[var(--color-ink-2)]">
         {formatNumber(usage.outputTokens)}
       </td>
-      <td className="py-3 px-4 text-right font-mono text-xs text-zinc-400">
+      <td className="py-3 px-4 text-right text-xs text-[var(--color-muted-foreground)]">
         {formatNumber(usage.cacheReadTokens)}
       </td>
-      <td className="py-3 px-4 text-right font-mono text-xs text-zinc-400">
+      <td className="py-3 px-4 text-right text-xs text-[var(--color-muted-foreground)]">
         {formatNumber(usage.cacheWriteTokens)}
       </td>
-      <td className="py-3 px-4 text-right font-mono text-xs text-zinc-400">
+      <td className="py-3 px-4 text-right text-xs text-[var(--color-muted-foreground)]">
         {usage.messageCount.toLocaleString()}
       </td>
       <td
         className={cn(
-          "py-3 px-4 text-right font-mono text-xs",
-          isLocal ? "text-zinc-600" : "text-zinc-300"
+          "py-3 px-4 text-right text-xs",
+          isLocal ? "text-[var(--color-quiet)]" : "text-[var(--color-ink-2)]"
         )}
       >
         {formatCost(usage.totalCostCents)}
@@ -338,36 +338,36 @@ export function StatsTab() {
 
         {/* Secondary Stats */}
         <div className="grid grid-cols-3 gap-3">
-          <div className="bg-zinc-900/30 rounded-lg p-3 border border-zinc-800/30">
+          <div className="bg-[var(--color-card)] p-3 border border-[var(--color-line)]">
             <div className="flex items-center gap-1.5 mb-1">
-              <MessageSquare className="h-3 w-3 text-zinc-500" />
-              <span className="text-[10px] text-zinc-500 uppercase tracking-wider">
+              <MessageSquare className="h-3 w-3 text-[var(--color-quiet)]" />
+              <span className="text-[10px] text-[var(--color-quiet)] uppercase tracking-wider">
                 Messages
               </span>
             </div>
-            <div className="text-lg font-semibold text-zinc-100">
+            <div className="text-lg font-semibold text-[var(--color-foreground)]">
               {totals.messages.toLocaleString()}
             </div>
           </div>
-          <div className="bg-zinc-900/30 rounded-lg p-3 border border-zinc-800/30">
+          <div className="bg-[var(--color-card)] p-3 border border-[var(--color-line)]">
             <div className="flex items-center gap-1.5 mb-1">
-              <RotateCcw className="h-3 w-3 text-zinc-500" />
-              <span className="text-[10px] text-zinc-500 uppercase tracking-wider">
+              <RotateCcw className="h-3 w-3 text-[var(--color-quiet)]" />
+              <span className="text-[10px] text-[var(--color-quiet)] uppercase tracking-wider">
                 Cache Read
               </span>
             </div>
-            <div className="text-lg font-semibold text-zinc-100">
+            <div className="text-lg font-semibold text-[var(--color-foreground)]">
               {formatNumber(totals.cacheRead)}
             </div>
           </div>
-          <div className="bg-zinc-900/30 rounded-lg p-3 border border-zinc-800/30">
+          <div className="bg-[var(--color-card)] p-3 border border-[var(--color-line)]">
             <div className="flex items-center gap-1.5 mb-1">
-              <Database className="h-3 w-3 text-zinc-500" />
-              <span className="text-[10px] text-zinc-500 uppercase tracking-wider">
+              <Database className="h-3 w-3 text-[var(--color-quiet)]" />
+              <span className="text-[10px] text-[var(--color-quiet)] uppercase tracking-wider">
                 Cache Write
               </span>
             </div>
-            <div className="text-lg font-semibold text-zinc-100">
+            <div className="text-lg font-semibold text-[var(--color-foreground)]">
               {formatNumber(totals.cacheWrite)}
             </div>
           </div>
@@ -378,26 +378,26 @@ export function StatsTab() {
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
-                <tr className="border-b border-zinc-800/50">
-                  <th className="text-left text-[10px] text-zinc-500 uppercase tracking-wider py-2 px-4">
+                <tr className="border-b border-[var(--color-line)]">
+                  <th className="text-left text-[10px] text-[var(--color-quiet)] uppercase tracking-wider py-2 px-4">
                     Model
                   </th>
-                  <th className="text-right text-[10px] text-zinc-500 uppercase tracking-wider py-2 px-4">
+                  <th className="text-right text-[10px] text-[var(--color-quiet)] uppercase tracking-wider py-2 px-4">
                     Input
                   </th>
-                  <th className="text-right text-[10px] text-zinc-500 uppercase tracking-wider py-2 px-4">
+                  <th className="text-right text-[10px] text-[var(--color-quiet)] uppercase tracking-wider py-2 px-4">
                     Output
                   </th>
-                  <th className="text-right text-[10px] text-zinc-500 uppercase tracking-wider py-2 px-4">
+                  <th className="text-right text-[10px] text-[var(--color-quiet)] uppercase tracking-wider py-2 px-4">
                     Cache R
                   </th>
-                  <th className="text-right text-[10px] text-zinc-500 uppercase tracking-wider py-2 px-4">
+                  <th className="text-right text-[10px] text-[var(--color-quiet)] uppercase tracking-wider py-2 px-4">
                     Cache W
                   </th>
-                  <th className="text-right text-[10px] text-zinc-500 uppercase tracking-wider py-2 px-4">
+                  <th className="text-right text-[10px] text-[var(--color-quiet)] uppercase tracking-wider py-2 px-4">
                     Msgs
                   </th>
-                  <th className="text-right text-[10px] text-zinc-500 uppercase tracking-wider py-2 px-4">
+                  <th className="text-right text-[10px] text-[var(--color-quiet)] uppercase tracking-wider py-2 px-4">
                     Cost
                   </th>
                 </tr>

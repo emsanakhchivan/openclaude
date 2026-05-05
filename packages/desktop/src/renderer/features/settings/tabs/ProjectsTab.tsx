@@ -47,7 +47,7 @@ export function ProjectsTab() {
               onChange={setSearch}
               placeholder="Search projects..."
             />
-            <button className="h-7 w-7 flex items-center justify-center rounded-md text-zinc-500 hover:text-zinc-300 hover:bg-zinc-100/[0.03]">
+            <button className="h-7 w-7 flex items-center justify-center text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)] hover:bg-[var(--color-sidebar-hover)]">
               <Plus className="h-4 w-4" />
             </button>
           </div>
@@ -68,8 +68,8 @@ export function ProjectsTab() {
           <div className="p-6 space-y-6">
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="text-sm font-semibold text-zinc-100">{selectedProject.name}</h3>
-                <p className="text-xs text-zinc-500 mt-1">
+                <h3 className="text-sm font-semibold text-[var(--color-foreground)]">{selectedProject.name}</h3>
+                <p className="text-xs text-[var(--color-muted-foreground)] mt-1">
                   {selectedProject.subtitle} • Last opened 2h ago
                 </p>
               </div>
@@ -77,22 +77,22 @@ export function ProjectsTab() {
 
             <SettingsCard title="Project Details">
               <SettingsRow label="Name" last={false}>
-                <span className="text-sm text-zinc-300">{selectedProject.name}</span>
+                <span className="text-sm text-[var(--color-ink-2)]">{selectedProject.name}</span>
               </SettingsRow>
               <SettingsRow label="Path" last={false}>
-                <span className="text-sm text-zinc-300 font-mono">{selectedProject.subtitle}</span>
+                <span className="text-sm text-[var(--color-ink-2)] font-mono">{selectedProject.subtitle}</span>
               </SettingsRow>
               <SettingsRow label="Branch" last={false}>
-                <span className="text-sm text-zinc-300 font-mono">desktop/pr4</span>
+                <span className="text-sm text-[var(--color-ink-2)] font-mono">desktop/pr4</span>
               </SettingsRow>
               <SettingsRow label="Sessions" last={false}>
-                <span className="text-sm text-zinc-300">12</span>
+                <span className="text-sm text-[var(--color-ink-2)]">12</span>
               </SettingsRow>
               <SettingsRow label="Messages" last={false}>
-                <span className="text-sm text-zinc-300">342</span>
+                <span className="text-sm text-[var(--color-ink-2)]">342</span>
               </SettingsRow>
               <SettingsRow label="Last Active" last>
-                <span className="text-sm text-zinc-300">2 hours ago</span>
+                <span className="text-sm text-[var(--color-ink-2)]">2 hours ago</span>
               </SettingsRow>
             </SettingsCard>
 
@@ -100,10 +100,10 @@ export function ProjectsTab() {
               {MOCK_SESSIONS.map((session, i) => (
                 <div
                   key={i}
-                  className="flex items-center justify-between px-5 py-3 border-t border-zinc-800/50 first:border-t-0"
+                  className="flex items-center justify-between px-5 py-3 border-t border-[var(--color-line)] first:border-t-0"
                 >
-                  <span className="text-sm text-zinc-200">{session.name}</span>
-                  <span className="text-xs text-zinc-500">{session.time}</span>
+                  <span className="text-sm text-[var(--color-foreground)]">{session.name}</span>
+                  <span className="text-xs text-[var(--color-muted-foreground)]">{session.time}</span>
                 </div>
               ))}
             </SettingsCard>

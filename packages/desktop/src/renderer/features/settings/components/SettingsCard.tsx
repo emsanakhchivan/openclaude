@@ -9,16 +9,16 @@ interface SettingsCardProps {
 
 export function SettingsCard({ title, description, children, className }: SettingsCardProps) {
   return (
-    <div className={cn("rounded-lg border border-zinc-800 bg-zinc-900/20 overflow-hidden", className)}>
+    <div className={cn("border border-[var(--color-line)] bg-[var(--color-card)] overflow-hidden", className)}>
       {title && (
         <div className="px-5 pt-4 pb-2">
-          <h4 className="text-sm font-semibold text-zinc-100">{title}</h4>
+          <h4 className="text-sm font-semibold text-[var(--color-foreground)]">{title}</h4>
           {description && (
-            <p className="text-xs text-zinc-500 mt-1">{description}</p>
+            <p className="text-xs text-[var(--color-muted-foreground)] mt-1">{description}</p>
           )}
         </div>
       )}
-      <div className={cn(title ? "border-t border-zinc-800/50" : "")}>
+      <div className={cn(title ? "border-t border-[var(--color-line)]" : "")}>
         {children}
       </div>
     </div>

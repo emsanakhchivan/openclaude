@@ -51,7 +51,7 @@ export function McpTab() {
               onChange={setSearch}
               placeholder="Search servers..."
             />
-            <button className="h-7 w-7 flex items-center justify-center rounded-md text-zinc-500 hover:text-zinc-300 hover:bg-zinc-100/[0.03]">
+            <button className="h-7 w-7 flex items-center justify-center text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)] hover:bg-[var(--color-sidebar-hover)]">
               <Plus className="h-4 w-4" />
             </button>
           </div>
@@ -72,10 +72,10 @@ export function McpTab() {
           <div className="p-6 space-y-6">
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="text-sm font-semibold text-zinc-100">{selectedServer.name}</h3>
+                <h3 className="text-sm font-semibold text-[var(--color-foreground)]">{selectedServer.name}</h3>
                 <div className="flex items-center gap-2 mt-1">
                   <StatusDot status={selectedServer.status} />
-                  <span className="text-xs text-zinc-500">
+                  <span className="text-xs text-[var(--color-muted-foreground)]">
                     {selectedServer.subtitle} • {selectedServer.status === "connected" ? "5 tools" : selectedServer.status}
                   </span>
                 </div>
@@ -84,16 +84,16 @@ export function McpTab() {
 
             <SettingsCard title="Connection">
               <SettingsRow label="Type" last={false}>
-                <span className="text-sm text-zinc-300 font-mono">stdio</span>
+                <span className="text-sm text-[var(--color-ink-2)] font-mono">stdio</span>
               </SettingsRow>
               <SettingsRow label="Command" last={false}>
-                <span className="text-sm text-zinc-300 font-mono">npx</span>
+                <span className="text-sm text-[var(--color-ink-2)] font-mono">npx</span>
               </SettingsRow>
               <SettingsRow label="Args" last={false}>
-                <span className="text-sm text-zinc-300 font-mono">-y @model/mcp</span>
+                <span className="text-sm text-[var(--color-ink-2)] font-mono">-y @model/mcp</span>
               </SettingsRow>
               <SettingsRow label="Scope" last>
-                <span className="text-sm text-zinc-300">Local</span>
+                <span className="text-sm text-[var(--color-ink-2)]">Local</span>
               </SettingsRow>
             </SettingsCard>
 
@@ -102,10 +102,10 @@ export function McpTab() {
                 {MCP_MOCK_TOOLS.map((tool) => (
                   <div
                     key={tool.name}
-                    className="px-5 py-3 border-t border-zinc-800/50 first:border-t-0"
+                    className="px-5 py-3 border-t border-[var(--color-line)] first:border-t-0"
                   >
-                    <span className="text-sm font-mono text-zinc-200">{tool.name}</span>
-                    <span className="text-xs text-zinc-500 mt-1 block">{tool.description}</span>
+                    <span className="text-sm font-mono text-[var(--color-foreground)]">{tool.name}</span>
+                    <span className="text-xs text-[var(--color-muted-foreground)] mt-1 block">{tool.description}</span>
                   </div>
                 ))}
               </SettingsCard>

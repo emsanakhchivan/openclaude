@@ -32,27 +32,27 @@ const MOCK_PROCESSES = [
 
 function StatBox({ label, value }: { label: string; value: string | number }) {
   return (
-    <div className="px-4 py-3 bg-zinc-900/30 rounded-md border border-zinc-800/50">
-      <span className="text-xs text-zinc-500">{label}</span>
-      <span className="text-sm font-semibold text-zinc-100 mt-1 block">{value}</span>
+    <div className="px-4 py-3 bg-[var(--color-card)] border border-[var(--color-line)]">
+      <span className="text-xs text-[var(--color-muted-foreground)]">{label}</span>
+      <span className="text-sm font-semibold text-[var(--color-foreground)] mt-1 block">{value}</span>
     </div>
   )
 }
 
 function ProgressBar({ label, value, percent, unit }: { label: string; value: string; percent: number; unit?: string }) {
   return (
-    <div className={cn("px-5 py-3", "border-t border-zinc-800/50")}>
+    <div className={cn("px-5 py-3", "border-t border-[var(--color-line)]")}>
       <div className="flex justify-between mb-1">
-        <span className="text-sm text-zinc-200">{label}</span>
-        <span className="text-xs text-zinc-500">{value} {unit}</span>
+        <span className="text-sm text-[var(--color-ink-2)]">{label}</span>
+        <span className="text-xs text-[var(--color-muted-foreground)]">{value} {unit}</span>
       </div>
-      <div className="h-2 bg-zinc-800 rounded-full overflow-hidden">
+      <div className="h-2 bg-[var(--color-muted)] overflow-hidden">
         <div
-          className="h-full bg-blue-500 rounded-full"
+          className="h-full bg-[var(--color-accent)]"
           style={{ width: `${percent}%` }}
         />
       </div>
-      <span className="text-xs text-zinc-500 mt-1">{percent}%</span>
+      <span className="text-xs text-[var(--color-muted-foreground)] mt-1">{percent}%</span>
     </div>
   )
 }
@@ -94,36 +94,36 @@ export function MonitorTab() {
             percent={MOCK_RESOURCES.cpu}
             unit="%"
           />
-          <div className="px-5 py-3 border-t border-zinc-800/50">
+          <div className="px-5 py-3 border-t border-[var(--color-line)]">
             <div className="flex justify-between">
-              <span className="text-sm text-zinc-200">Disk</span>
-              <span className="text-xs text-zinc-500">{MOCK_RESOURCES.disk} GB</span>
+              <span className="text-sm text-[var(--color-ink-2)]">Disk</span>
+              <span className="text-xs text-[var(--color-muted-foreground)]">{MOCK_RESOURCES.disk} GB</span>
             </div>
-            <span className="text-xs text-zinc-600 mt-1">Session logs + cache</span>
+            <span className="text-xs text-[var(--color-quiet)] mt-1">Session logs + cache</span>
           </div>
         </SettingsCard>
 
         <SettingsCard title="MCP Status">
           <div className="px-5 py-4 space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-sm text-zinc-200">Connected</span>
+              <span className="text-sm text-[var(--color-ink-2)]">Connected</span>
               <div className="flex items-center gap-2">
                 <StatusDot status="connected" />
-                <span className="text-xs text-zinc-500">{MOCK_MCP_STATUS.connected} servers</span>
+                <span className="text-xs text-[var(--color-muted-foreground)]">{MOCK_MCP_STATUS.connected} servers</span>
               </div>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-sm text-zinc-200">Needs Auth</span>
+              <span className="text-sm text-[var(--color-ink-2)]">Needs Auth</span>
               <div className="flex items-center gap-2">
                 <StatusDot status="needs-auth" />
-                <span className="text-xs text-zinc-500">{MOCK_MCP_STATUS.needsAuth} server</span>
+                <span className="text-xs text-[var(--color-muted-foreground)]">{MOCK_MCP_STATUS.needsAuth} server</span>
               </div>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-sm text-zinc-200">Error</span>
+              <span className="text-sm text-[var(--color-ink-2)]">Error</span>
               <div className="flex items-center gap-2">
                 <StatusDot status="error" />
-                <span className="text-xs text-zinc-500">{MOCK_MCP_STATUS.error} server</span>
+                <span className="text-xs text-[var(--color-muted-foreground)]">{MOCK_MCP_STATUS.error} server</span>
               </div>
             </div>
           </div>
@@ -135,14 +135,14 @@ export function MonitorTab() {
               key={i}
               className={cn(
                 "px-5 py-3",
-                i > 0 && "border-t border-zinc-800/50"
+                i > 0 && "border-t border-[var(--color-line)]"
               )}
             >
               <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-zinc-200">{proc.name}</span>
+                <span className="text-sm font-medium text-[var(--color-ink-2)]">{proc.name}</span>
                 <StatusDot status="active" />
               </div>
-              <span className="text-xs text-zinc-500 mt-1">{proc.status} • {proc.detail}</span>
+              <span className="text-xs text-[var(--color-muted-foreground)] mt-1">{proc.status} • {proc.detail}</span>
             </div>
           ))}
         </SettingsCard>

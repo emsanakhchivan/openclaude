@@ -33,11 +33,11 @@ export function SettingsSidebar() {
   const [activeTab, setActiveTab] = useAtom(settingsActiveTabAtom)
 
   return (
-    <aside className="w-[220px] h-full flex flex-col bg-[#0c0c0d] border-r border-zinc-800">
+    <aside className="w-[220px] h-full flex flex-col bg-sidebar border-r border-[var(--color-line)]">
       <BackButton />
 
       <div className="px-3 pt-2 pb-1">
-        <span className="text-xs font-medium text-zinc-600 uppercase tracking-wider">
+        <span className="text-xs font-medium text-[var(--color-quiet)] uppercase tracking-wider">
           General
         </span>
       </div>
@@ -54,10 +54,11 @@ export function SettingsSidebar() {
         ))}
       </nav>
 
-      <div className="mx-3 my-2 h-px bg-zinc-800/60" />
+      {/* Dashed divider — website signature style */}
+      <div className="divider-dashed mx-3 my-2" />
 
       <div className="px-3 pt-2 pb-1">
-        <span className="text-xs font-medium text-zinc-600 uppercase tracking-wider">
+        <span className="text-xs font-medium text-[var(--color-quiet)] uppercase tracking-wider">
           Advanced
         </span>
       </div>
