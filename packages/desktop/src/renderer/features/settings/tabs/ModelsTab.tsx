@@ -1,45 +1,522 @@
-import { useState } from "react"
-import { Plus, Edit2, Trash2, Brain } from "lucide-react"
+import { useState, useCallback } from "react"
+import {
+  Plus,
+  Edit2,
+  Trash2,
+  Brain,
+  X,
+  Eye,
+  EyeOff,
+  Key,
+  Globe,
+  Server,
+} from "lucide-react"
 import { SettingsCard } from "../components/SettingsCard"
 import { SettingsRow } from "../components/SettingsRow"
-import { SettingsSelect } from "../components/SettingsSelect"
 import { SettingsSection } from "../components/SettingsSection"
-import { Button } from "../../../components/ui/button"
-import { Switch } from "../../../components/ui/switch"
+import { StatusDot } from "../components/StatusDot"
 import { cn } from "../../../lib/utils"
 
-const MOCK_DEFAULT_MODELS = [
-  { value: "opus-4", label: "Claude Opus 4" },
-  { value: "sonnet-4", label: "Claude Sonnet 4" },
-  { value: "haiku-4.5", label: "Claude Haiku 4.5" },
+// ── Types ──────────────────────────────────────────────
+
+type EndpointType = "anthropic" | "openai-compatible"
+
+interface CustomModelConfig {
+  id: string
+  name: string
+  modelId: string
+}
+
+interface ModelProfile {
+  id: string
+  name: string
+  baseUrl: string
+  token: string
+  endpointType: EndpointType
+  isOffline?: boolean
+  models: CustomModelConfig[]
+}
+
+// ── Initial Profiles with real endpoints ───────────────
+
+let idCounter = 100
+function genId() {
+  return `id_${++idCounter}`
+}
+
+const INITIAL_PROFILES: ModelProfile[] = [
+  {
+    id: "openrouter",
+    name: "OpenRouter",
+    baseUrl: "https://openrouter.ai/api/v1",
+    token: "sk-or-v1-a8f3c2e1d4b6",
+    endpointType: "openai-compatible",
+    models: [
+      { id: "m1", name: "GPT-5.5", modelId: "openai/gpt-5.5" },
+      { id: "m2", name: "Kimi K2.5", modelId: "moonshot/kimi-k2.5" },
+      { id: "m3", name: "Qwen 3.6 Plus", modelId: "qwen/qwen-3.6-plus" },
+    ],
+  },
+  {
+    id: "zai",
+    name: "Z AI",
+    baseUrl: "https://api.z.ai/api/coding/paas/v4",
+    token: "sk-zai-f7e2b9c4a1d3",
+    endpointType: "openai-compatible",
+    models: [
+      { id: "m4", name: "GLM 5.1", modelId: "glm-5.1" },
+      { id: "m5", name: "GLM-4.7", modelId: "glm-4.7" },
+      { id: "m6", name: "GLM-5", modelId: "glm-5" },
+    ],
+  },
+  {
+    id: "ollama",
+    name: "Ollama (Local)",
+    baseUrl: "http://localhost:11434",
+    token: "",
+    endpointType: "openai-compatible",
+    isOffline: true,
+    models: [
+      { id: "m7", name: "Llama 4 Maverick", modelId: "llama4:maverick" },
+      { id: "m8", name: "Qwen 3.6 Max", modelId: "qwen3:3.6-max" },
+    ],
+  },
+  {
+    id: "alibaba",
+    name: "Alibaba Cloud",
+    baseUrl: "https://coding-intl.dashscope.aliyuncs.com/apps/anthropic",
+    token: "sk-ali-b5d8e2f1c3a7",
+    endpointType: "openai-compatible",
+    models: [
+      { id: "m9", name: "Qwen 3.6 Plus", modelId: "qwen-plus-latest" },
+      { id: "m10", name: "Qwen 3.6 Max", modelId: "qwen-max" },
+    ],
+  },
 ]
 
-const MOCK_PROVIDERS = [
-  { value: "anthropic", label: "Anthropic" },
-  { value: "openai", label: "OpenAI" },
-  { value: "google", label: "Google" },
+const CLAUDE_MODELS = [
+  { id: "claude-opus-4-6", name: "Claude Opus 4.6", provider: "Anthropic" },
+  { id: "claude-sonnet-4-6", name: "Claude Sonnet 4.6", provider: "Anthropic" },
+  { id: "claude-haiku-4-5", name: "Claude Haiku 4.5", provider: "Anthropic" },
 ]
 
-const MOCK_MODELS = [
-  { id: "opus-4", name: "Claude Opus 4", description: "Most capable, slower", enabled: true },
-  { id: "sonnet-4", name: "Claude Sonnet 4", description: "Balanced performance", enabled: true },
-  { id: "haiku-4.5", name: "Claude Haiku 4.5", description: "Fast and efficient", enabled: true },
-  { id: "gpt-4o", name: "GPT-4o", description: "OpenAI latest", enabled: false },
-  { id: "gemini-2.5", name: "Gemini 2.5 Pro", description: "Google's flagship", enabled: false },
-]
+// ── Edit Profile Modal ─────────────────────────────────
 
-const MOCK_CUSTOM_PROFILES = [
-  { id: "openrouter", name: "OpenRouter", models: 3, path: "API configured" },
-  { id: "ollama", name: "Local Ollama", models: 2, path: "localhost:11434" },
-]
+function ProfileModal({
+  open,
+  onClose,
+  onSave,
+  profile,
+}: {
+  open: boolean
+  onClose: () => void
+  onSave: (p: ModelProfile) => void
+  profile: ModelProfile | null
+}) {
+  const [name, setName] = useState(profile?.name ?? "")
+  const [baseUrl, setBaseUrl] = useState(profile?.baseUrl ?? "")
+  const [token, setToken] = useState(profile?.token ?? "")
+  const [endpointType, setEndpointType] = useState<EndpointType>(
+    profile?.endpointType ?? "anthropic"
+  )
+  const [isOffline, setIsOffline] = useState(profile?.isOffline ?? false)
+  const [models, setModels] = useState<CustomModelConfig[]>(
+    profile?.models ?? []
+  )
+  const [showToken, setShowToken] = useState(false)
+
+  if (!open) return null
+
+  const handleSave = () => {
+    if (!name.trim() || !baseUrl.trim() || (models.length === 0)) return
+    onSave({
+      id: profile?.id ?? genId(),
+      name: name.trim(),
+      baseUrl: baseUrl.trim(),
+      token: token.trim(),
+      endpointType,
+      isOffline,
+      models,
+    })
+    onClose()
+  }
+
+  const addModel = () => {
+    setModels((prev) => [
+      ...prev,
+      { id: genId(), name: "", modelId: "" },
+    ])
+  }
+
+  const updateModel = (id: string, field: "name" | "modelId", value: string) => {
+    setModels((prev) =>
+      prev.map((m) => (m.id === id ? { ...m, [field]: value } : m))
+    )
+  }
+
+  const removeModel = (id: string) => {
+    setModels((prev) => prev.filter((m) => m.id !== id))
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      {/* Backdrop */}
+      <div
+        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+        onClick={onClose}
+      />
+      {/* Modal */}
+      <div className="relative w-full max-w-lg mx-4 bg-zinc-900 border border-zinc-800 rounded-xl shadow-2xl">
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-800">
+          <h3 className="text-sm font-semibold text-zinc-100">
+            {profile ? "Edit Profile" : "Add Profile"}
+          </h3>
+          <button
+            onClick={onClose}
+            className="p-1 rounded-md text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800 transition-colors"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="px-6 py-4 space-y-4 max-h-[65vh] overflow-y-auto">
+          {/* Profile Name */}
+          <div>
+            <label className="text-xs text-zinc-400 mb-1 block">
+              Profile Name
+            </label>
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="e.g. OpenRouter"
+              className="w-full px-3 py-2 text-sm bg-zinc-800/50 border border-zinc-700 rounded-md text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-zinc-500"
+            />
+          </div>
+
+          {/* Endpoint Type */}
+          <div>
+            <label className="text-xs text-zinc-400 mb-1 block">
+              Endpoint Type
+            </label>
+            <div className="flex gap-2">
+              {(["anthropic", "openai-compatible"] as EndpointType[]).map(
+                (t) => (
+                  <button
+                    key={t}
+                    onClick={() => setEndpointType(t)}
+                    className={cn(
+                      "flex-1 px-3 py-2 text-xs rounded-md border transition-colors",
+                      endpointType === t
+                        ? "border-zinc-500 bg-zinc-800 text-zinc-100"
+                        : "border-zinc-800 text-zinc-500 hover:text-zinc-300"
+                    )}
+                  >
+                    {t === "anthropic"
+                      ? "Anthropic API"
+                      : "OpenAI Compatible"}
+                  </button>
+                )
+              )}
+            </div>
+          </div>
+
+          {/* Base URL */}
+          <div>
+            <label className="text-xs text-zinc-400 mb-1 block">
+              API Endpoint
+            </label>
+            <input
+              value={baseUrl}
+              onChange={(e) => setBaseUrl(e.target.value)}
+              placeholder="https://api.example.com/v1"
+              className="w-full px-3 py-2 text-sm bg-zinc-800/50 border border-zinc-700 rounded-md text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-zinc-500 font-mono"
+            />
+          </div>
+
+          {/* API Key */}
+          <div>
+            <label className="text-xs text-zinc-400 mb-1 block">
+              API Key {!isOffline && <span className="text-red-400">*</span>}
+            </label>
+            <div className="relative">
+              <input
+                value={token}
+                onChange={(e) => setToken(e.target.value)}
+                type={showToken ? "text" : "password"}
+                placeholder={isOffline ? "Not required for local" : "sk-..."}
+                className="w-full px-3 py-2 pr-10 text-sm bg-zinc-800/50 border border-zinc-700 rounded-md text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-zinc-500 font-mono"
+              />
+              <button
+                onClick={() => setShowToken(!showToken)}
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-zinc-500 hover:text-zinc-300"
+              >
+                {showToken ? (
+                  <EyeOff className="h-3.5 w-3.5" />
+                ) : (
+                  <Eye className="h-3.5 w-3.5" />
+                )}
+              </button>
+            </div>
+          </div>
+
+          {/* Offline toggle */}
+          <div className="flex items-center justify-between">
+            <div>
+              <span className="text-xs text-zinc-400">Local / Offline</span>
+              <p className="text-[10px] text-zinc-600">
+                For Ollama, LM Studio, etc.
+              </p>
+            </div>
+            <button
+              onClick={() => setIsOffline(!isOffline)}
+              className={cn(
+                "relative w-9 h-5 rounded-full transition-colors",
+                isOffline ? "bg-zinc-500" : "bg-zinc-700"
+              )}
+            >
+              <div
+                className={cn(
+                  "absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform",
+                  isOffline ? "translate-x-4" : "translate-x-0.5"
+                )}
+              />
+            </button>
+          </div>
+
+          {/* Models */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-xs text-zinc-400">
+                Models ({models.length})
+              </label>
+              <button
+                onClick={addModel}
+                className="flex items-center gap-1 text-xs text-zinc-400 hover:text-zinc-200 transition-colors"
+              >
+                <Plus className="h-3 w-3" />
+                Add Model
+              </button>
+            </div>
+            <div className="space-y-2">
+              {models.map((m) => (
+                <div
+                  key={m.id}
+                  className="flex items-start gap-2 p-2 bg-zinc-800/30 rounded-md border border-zinc-800/50"
+                >
+                  <div className="flex-1 space-y-1.5">
+                    <input
+                      value={m.name}
+                      onChange={(e) =>
+                        updateModel(m.id, "name", e.target.value)
+                      }
+                      placeholder="Display name (e.g. GPT-5.5)"
+                      className="w-full px-2.5 py-1.5 text-sm bg-zinc-800/50 border border-zinc-700 rounded-md text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-zinc-500"
+                    />
+                    <input
+                      value={m.modelId}
+                      onChange={(e) =>
+                        updateModel(m.id, "modelId", e.target.value)
+                      }
+                      placeholder="Model ID (e.g. openai/gpt-5.5)"
+                      className="w-full px-2.5 py-1.5 text-xs bg-zinc-800/50 border border-zinc-700 rounded-md text-zinc-300 font-mono placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-zinc-500"
+                    />
+                  </div>
+                  <button
+                    onClick={() => removeModel(m.id)}
+                    className="mt-1 p-1 text-zinc-600 hover:text-red-400 transition-colors"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ))}
+              {models.length === 0 && (
+                <div className="py-4 text-center border border-dashed border-zinc-800 rounded-md">
+                  <p className="text-xs text-zinc-600">
+                    No models added yet
+                  </p>
+                  <button
+                    onClick={addModel}
+                    className="mt-2 text-xs text-zinc-500 hover:text-zinc-300 transition-colors"
+                  >
+                    + Add your first model
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="flex items-center justify-end gap-2 px-6 py-4 border-t border-zinc-800">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 text-xs text-zinc-400 hover:text-zinc-200 transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSave}
+            className="px-4 py-2 text-xs font-medium text-zinc-100 bg-zinc-700 hover:bg-zinc-600 rounded-md transition-colors"
+          >
+            {profile ? "Save Changes" : "Add Profile"}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Profile Card ───────────────────────────────────────
+
+function ProfileCard({
+  profile,
+  onEdit,
+  onDelete,
+}: {
+  profile: ModelProfile
+  onEdit: () => void
+  onDelete: () => void
+}) {
+  const maskedToken = profile.isOffline
+    ? "N/A"
+    : profile.token
+    ? `${profile.token.slice(0, 6)}${"•".repeat(8)}`
+    : "Not set"
+
+  return (
+    <div className="px-5 py-3 border-t border-zinc-800/50 first:border-t-0">
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-medium text-zinc-200">
+            {profile.name}
+          </span>
+          {profile.isOffline && (
+            <span className="text-[10px] px-1.5 py-0.5 bg-zinc-800 text-zinc-400 rounded">
+              LOCAL
+            </span>
+          )}
+          <span className="text-[10px] px-1.5 py-0.5 bg-zinc-800/50 text-zinc-500 rounded">
+            {profile.endpointType === "anthropic"
+              ? "Anthropic"
+              : "OpenAI"}
+          </span>
+        </div>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={onEdit}
+            className="p-1.5 rounded-md text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800 transition-colors"
+            title="Edit profile"
+          >
+            <Edit2 className="h-3 w-3" />
+          </button>
+          <button
+            onClick={onDelete}
+            className="p-1.5 rounded-md text-zinc-500 hover:text-red-400 hover:bg-zinc-800 transition-colors"
+            title="Delete profile"
+          >
+            <Trash2 className="h-3 w-3" />
+          </button>
+        </div>
+      </div>
+
+      {/* API info */}
+      <div className="flex items-center gap-4 text-[11px] text-zinc-500 mb-2">
+        <div className="flex items-center gap-1">
+          <Globe className="h-3 w-3" />
+          <span className="font-mono truncate max-w-[220px]">
+            {profile.baseUrl}
+          </span>
+        </div>
+        <div className="flex items-center gap-1">
+          <Key className="h-3 w-3" />
+          <span className="font-mono">{maskedToken}</span>
+        </div>
+      </div>
+
+      {/* Model list */}
+      <div className="flex flex-wrap gap-1.5">
+        {profile.models.map((m) => (
+          <span
+            key={m.id}
+            className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 bg-zinc-800/60 text-zinc-400 rounded-md"
+          >
+            <Brain className="h-2.5 w-2.5" />
+            {m.name}
+            <span className="text-zinc-600 font-mono">{m.modelId}</span>
+          </span>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// ── Main Component ─────────────────────────────────────
 
 export function ModelsTab() {
-  const [defaultModel, setDefaultModel] = useState("sonnet-4")
-  const [provider, setProvider] = useState("anthropic")
-  const [models, setModels] = useState(MOCK_MODELS)
+  const [profiles, setProfiles] = useState<ModelProfile[]>(INITIAL_PROFILES)
+  const [modalOpen, setModalOpen] = useState(false)
+  const [editingProfile, setEditingProfile] = useState<ModelProfile | null>(
+    null
+  )
+
+  // Build available models from defaults + custom profiles
+  const availableModels = [
+    ...CLAUDE_MODELS.map((m) => ({ ...m, source: "claude" as const })),
+    ...profiles.flatMap((p) =>
+      p.models.map((m) => ({
+        id: `${p.id}:${m.id}`,
+        name: m.name,
+        provider: p.name,
+        source: "custom" as const,
+      }))
+    ),
+  ]
+
+  const [enabledModels, setEnabledModels] = useState<Set<string>>(
+    new Set(availableModels.map((m) => m.id))
+  )
 
   const toggleModel = (id: string) => {
-    setModels(prev => prev.map(m => m.id === id ? { ...m, enabled: !m.enabled } : m))
+    setEnabledModels((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const handleSaveProfile = useCallback(
+    (profile: ModelProfile) => {
+      setProfiles((prev) => {
+        const exists = prev.find((p) => p.id === profile.id)
+        if (exists) {
+          return prev.map((p) => (p.id === profile.id ? profile : p))
+        }
+        return [...prev, profile]
+      })
+      // Auto-enable new models in available list
+      profile.models.forEach((m) => {
+        const id = `${profile.id}:${m.id}`
+        setEnabledModels((prev) => new Set([...prev, id]))
+      })
+    },
+    []
+  )
+
+  const handleDeleteProfile = useCallback((id: string) => {
+    setProfiles((prev) => prev.filter((p) => p.id !== id))
+  }, [])
+
+  const openEdit = (profile: ModelProfile) => {
+    setEditingProfile(profile)
+    setModalOpen(true)
+  }
+
+  const openAdd = () => {
+    setEditingProfile(null)
+    setModalOpen(true)
   }
 
   return (
@@ -47,94 +524,139 @@ export function ModelsTab() {
       <div className="max-w-2xl mx-auto p-6 space-y-6">
         <SettingsSection
           title="Models"
-          description="Configure AI models and providers"
+          description="Configure AI models, providers, and custom profiles"
         />
 
-        <SettingsCard title="Default Model">
-          <SettingsSelect
-            label="New Chat Model"
-            description="Default model for new chats"
-            value={defaultModel}
-            options={MOCK_DEFAULT_MODELS}
-            onChange={setDefaultModel}
-            last
-          />
-        </SettingsCard>
-
-        <SettingsCard title="Provider">
-          <SettingsSelect
-            label="Provider"
-            description="AI provider for responses"
-            value={provider}
-            options={MOCK_PROVIDERS}
-            onChange={setProvider}
-          />
-          <SettingsRow label="API Key" description="Your API key" last>
+        {/* Sign with Codex */}
+        <SettingsCard title="Authentication">
+          <SettingsRow label="Sign with Codex" description="Login with ChatGPT subscription or API key">
+            <button className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-zinc-200 bg-zinc-800 hover:bg-zinc-700 rounded-md border border-zinc-700 transition-colors">
+              <Server className="h-3.5 w-3.5" />
+              Connect Codex
+            </button>
+          </SettingsRow>
+          <SettingsRow label="Anthropic Account" description="OAuth login with Anthropic" last>
             <div className="flex items-center gap-2">
-              <span className="text-sm text-zinc-500 font-mono">••••••••••••</span>
-              <Button variant="ghost" size="sm" className="h-6 px-2 text-xs">Edit</Button>
-              <Button variant="ghost" size="sm" className="h-6 px-2 text-xs">Test</Button>
+              <StatusDot status="connected" />
+              <span className="text-xs text-zinc-500">Connected</span>
             </div>
           </SettingsRow>
         </SettingsCard>
 
+        {/* Available Models */}
         <SettingsCard title="Available Models">
-          {models.map((model, i) => (
-            <div
-              key={model.id}
-              className={cn(
-                "flex items-center justify-between px-5 py-3",
-                i > 0 && "border-t border-zinc-800/50"
-              )}
-            >
-              <div className="flex items-center gap-2">
-                <Brain className="h-4 w-4 text-zinc-500" />
-                <div>
-                  <span className="text-sm font-medium text-zinc-200">{model.name}</span>
-                  <span className="text-xs text-zinc-500 ml-2">{model.description}</span>
+          <div className="px-5 py-2 border-b border-zinc-800/50">
+            <span className="text-[10px] text-zinc-500 uppercase tracking-wider">
+              Default — Anthropic
+            </span>
+          </div>
+          {availableModels
+            .filter((m) => m.source === "claude")
+            .map((model) => (
+              <div
+                key={model.id}
+                className="flex items-center justify-between px-5 py-2.5 border-t border-zinc-800/30"
+              >
+                <div className="flex items-center gap-2">
+                  <Brain className="h-3.5 w-3.5 text-zinc-500" />
+                  <div>
+                    <span className="text-sm text-zinc-200">{model.name}</span>
+                    <span className="text-[10px] text-zinc-600 ml-2">
+                      {model.provider}
+                    </span>
+                  </div>
                 </div>
+                <button
+                  onClick={() => toggleModel(model.id)}
+                  className={cn(
+                    "relative w-8 h-4 rounded-full transition-colors",
+                    enabledModels.has(model.id) ? "bg-blue-500" : "bg-zinc-700"
+                  )}
+                >
+                  <div
+                    className={cn(
+                      "absolute top-0.5 w-3 h-3 rounded-full bg-white transition-transform",
+                      enabledModels.has(model.id)
+                        ? "translate-x-4"
+                        : "translate-x-0.5"
+                    )}
+                  />
+                </button>
               </div>
-              <Switch
-                checked={model.enabled}
-                onCheckedChange={() => toggleModel(model.id)}
-              />
+            ))}
+          {profiles.length > 0 && (
+            <div className="px-5 py-2 border-t border-zinc-800/50">
+              <span className="text-[10px] text-zinc-500 uppercase tracking-wider">
+                Custom Profiles
+              </span>
             </div>
-          ))}
+          )}
+          {availableModels
+            .filter((m) => m.source === "custom")
+            .map((model) => (
+              <div
+                key={model.id}
+                className="flex items-center justify-between px-5 py-2.5 border-t border-zinc-800/30"
+              >
+                <div className="flex items-center gap-2">
+                  <Brain className="h-3.5 w-3.5 text-zinc-600" />
+                  <div>
+                    <span className="text-sm text-zinc-200">{model.name}</span>
+                    <span className="text-[10px] text-zinc-600 ml-2">
+                      via {model.provider}
+                    </span>
+                  </div>
+                </div>
+                <button
+                  onClick={() => toggleModel(model.id)}
+                  className={cn(
+                    "relative w-8 h-4 rounded-full transition-colors",
+                    enabledModels.has(model.id) ? "bg-blue-500" : "bg-zinc-700"
+                  )}
+                >
+                  <div
+                    className={cn(
+                      "absolute top-0.5 w-3 h-3 rounded-full bg-white transition-transform",
+                      enabledModels.has(model.id)
+                        ? "translate-x-4"
+                        : "translate-x-0.5"
+                    )}
+                  />
+                </button>
+              </div>
+            ))}
         </SettingsCard>
 
-        <SettingsCard title="Custom Profiles">
-          {MOCK_CUSTOM_PROFILES.map((profile, i) => (
-            <div
+        {/* Custom Profiles */}
+        <SettingsCard title="Custom API Profiles">
+          {profiles.map((profile) => (
+            <ProfileCard
               key={profile.id}
-              className={cn(
-                "flex items-center justify-between px-5 py-3",
-                i > 0 && "border-t border-zinc-800/50"
-              )}
-            >
-              <div>
-                <span className="text-sm font-medium text-zinc-200">{profile.name}</span>
-                <span className="text-xs text-zinc-500 ml-2">
-                  {profile.models} models • {profile.path}
-                </span>
-              </div>
-              <div className="flex items-center gap-1">
-                <Button variant="ghost" size="sm" className="h-6 px-2 text-xs">
-                  <Edit2 className="h-3 w-3" />
-                </Button>
-                <Button variant="ghost" size="sm" className="h-6 px-2 text-xs text-red-500 hover:text-red-600">
-                  <Trash2 className="h-3 w-3" />
-                </Button>
-              </div>
-            </div>
+              profile={profile}
+              onEdit={() => openEdit(profile)}
+              onDelete={() => handleDeleteProfile(profile.id)}
+            />
           ))}
           <div className="px-5 py-3 border-t border-zinc-800/50">
-            <Button variant="outline" size="sm" className="h-7">
-              <Plus className="h-3 w-3 mr-1" />
+            <button
+              onClick={openAdd}
+              className="flex items-center gap-1.5 text-xs text-zinc-400 hover:text-zinc-200 transition-colors"
+            >
+              <Plus className="h-3.5 w-3.5" />
               Add Profile
-            </Button>
+            </button>
           </div>
         </SettingsCard>
       </div>
+
+      {/* Modal — key forces full remount so useState picks up new profile data */}
+      <ProfileModal
+        key={editingProfile?.id ?? "__new__"}
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        onSave={handleSaveProfile}
+        profile={editingProfile}
+      />
     </div>
   )
 }
