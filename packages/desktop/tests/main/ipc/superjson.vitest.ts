@@ -28,6 +28,7 @@ describe("SuperJSON Date roundtrip", () => {
 
 describe("tRPC Error Formatter", () => {
   it("includes stack trace in development mode", async () => {
+    expect.assertions(3)
     const originalEnv = process.env.NODE_ENV
     process.env.NODE_ENV = "development"
 
@@ -53,6 +54,7 @@ describe("tRPC Error Formatter", () => {
   })
 
   it("omits stack trace in production", async () => {
+    expect.assertions(2)
     const originalEnv = process.env.NODE_ENV
     process.env.NODE_ENV = "production"
 
