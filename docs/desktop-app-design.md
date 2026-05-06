@@ -334,7 +334,7 @@ useChat() hook                    SDK Host Layer
 - id, name, path, gitBranch, gitRemoteUrl, gitProvider, gitOwner, gitRepo, lastOpenedAt, createdAt
 
 **sessions**:
-- id, projectId, title, provider, model, permissionMode (ask|accept_edits|plan|bypass), createdAt, updatedAt
+- id, projectId, title, provider, model, permissionMode (ask|accept_edits|plan|bypass), createdAt, updatedAt, **archivedAt** (soft delete — null = active)
 
 **messages**:
 - id, sessionId, role (user/assistant/tool/system), content, metadata (JSON), tokenCount, createdAt
@@ -472,6 +472,128 @@ PR5 (Chat UI) requires an active provider connection and API key to function. Th
 - `getProject` — query, returns single project by id with git status
 - `validateProject` — query, checks project path exists and is accessible
 - `getGitStatus` — query, returns git status for active project (branch, staged, unstaged)
+
+#### PR7 Detail: Sidebar Architecture (Project-Centric Design)
+
+**Key difference from 1code**: NO workspace/chats hierarchy. Direct project → session structure with lazy-loaded active chats.
+
+**Sidebar Layout** (top to bottom):
+```
+┌─────────────────────────┐
+│ [+ New Chat] button     │ ← Top: always visible, opens project selector
+├─────────────────────────┤
+│ Project 1 (expanded)    │ ← Collapsible dropdown per project
+│   ├─ [+ Quick Chat]     │ ← Hover: quick new chat for THIS project
+│   ├─ Session A (active) │ ← Last 5 active sessions (not archived)
+│   ├─ Session B          │
+│   ├─ Session C          │
+│   ├─ Session D          │
+│   ├─ Session E          │
+│   └─ [Load More]        │ ← Lazy load older sessions
+├─────────────────────────┤
+│ Project 2 (collapsed)   │ ← Chevron icon shows expand state
+│   [▶]                   │
+├─────────────────────────┤
+│ Project 3               │
+│   [▶]                   │
+└─────────────────────────┘
+│ [Search 🔍]             │ ← Search all sessions across projects
+└─────────────────────────┘
+```
+
+**Components**:
+
+**SidebarHeader**:
+- Large `[+ New Chat]` button at top
+- Click → opens `ProjectSelector` modal (must pick project before starting)
+- Shortcut: `Cmd/Ctrl+N`
+
+**ProjectDropdown** (collapsible per project):
+- Header row: project name, chevron icon (expanded/collapsed), hover-revealed `[+]` button
+- `[+]` button (appears on hover): Quick new chat for THIS project (bypasses project selector)
+- Expanded state shows: last 5 active sessions (archived_at IS NULL)
+- Each session row: title (truncated), timestamp, active indicator (blue dot)
+- Footer (if >5 sessions): `[Load More]` button
+- Collapse state: just project header with chevron
+- Click header → toggle expand/collapse
+- Active project (selectedProjectAtom) highlighted with accent border
+
+**Load More Pattern** (lazy loading):
+- Initial load: 5 most recent active sessions per project (DB query limit=5)
+- Click `[Load More]` → fetch next 10 sessions for that project
+- Progressive loading prevents DB overload
+- Virtualized list for 100+ sessions (tanstack/react-virtual)
+
+**Session Search**:
+- Search icon button at sidebar footer
+- Opens modal with search input
+- Searches across ALL sessions (all projects)
+- Results: session title, project name, timestamp
+- Click result → switches to that session + project
+
+**Archive/Unarchive** (soft delete):
+- Right-click session → Archive option
+- Archived sessions hidden from sidebar dropdown
+- Archive endpoint: `trpc.sessions.archive(sessionId)`
+- Unarchive endpoint: `trpc.sessions.unarchive(sessionId)`
+- Archive button in session header (three-dot menu)
+- Archived view: separate tab or filter toggle in search modal
+
+**tRPC endpoints** (sessionsRouter — new for PR7):
+- `listActiveSessions(projectId, limit=5)` — query, returns active sessions (archived_at IS NULL)
+- `loadMoreSessions(projectId, offset, limit=10)` — query, pagination for older sessions
+- `searchSessions(query)` — query, searches all session titles across projects
+- `archiveSession(sessionId)` — mutation, sets archived_at timestamp
+- `unarchiveSession(sessionId)` — mutation, sets archived_at = NULL
+- `getSession(sessionId)` — query, returns session with messages count
+
+**Database queries** (from queries.ts):
+- `getRecentSessions(projectId, limit=5)` — Only active (archivedAt IS NULL)
+- `archiveSession(sessionId)` — Soft delete
+- `unarchiveSession(sessionId)` — Restore
+
+**State management** (Jotai atoms):
+- `projectsListAtom` — All projects sorted by lastOpenedAt
+- `projectDropdownStateAtom` — Map of projectId → expanded/collapsed boolean
+- `activeSessionsAtom(projectId)` — Per-project active session list (lazy loaded)
+- `selectedSessionAtom` — Current active session id
+- `selectedProjectAtom` — Current project id
+
+**UX Flow Examples**:
+
+1. **New chat via top button**:
+   - Click `[+ New Chat]` → ProjectSelector modal
+   - Pick project → NewChatForm opens
+   - First message → session created, appears in sidebar under that project
+
+2. **Quick new chat for specific project**:
+   - Hover over Project 2 → `[+]` button appears
+   - Click `[+]` → directly opens NewChatForm with Project 2 pre-selected
+   - Bypasses project selector (already know target project)
+
+3. **Resume existing session**:
+   - Expand Project 1 dropdown
+   - See last 5 active sessions
+   - Click "Session B" → switches to that session
+   - selectedSessionAtom updates, chat loads
+
+4. **Archive session**:
+   - Right-click "Session A" → Archive
+   - Session A disappears from dropdown (moved to archived)
+   - archived_at timestamp set in DB
+
+5. **Search across projects**:
+   - Click search icon → modal opens
+   - Type "debug" → shows matching sessions from all projects
+   - Click result → switches project + session
+
+**Benefits over 1code workspace pattern**:
+- ✅ Simpler UX: No intermediate "workspace" layer
+- ✅ Direct access: Quick chat button per project (bypass selector)
+- ✅ Performance: Lazy load 5 sessions, not all 100+
+- ✅ Search: Global search across all projects (premium feature)
+- ✅ Archive: Soft delete with restore capability
+- ✅ Project-centric: Projects are primary organizing unit (not chats/workspaces)
 
 **PR8: Tool System UI** (~2000 lines)
 - Files: `src/renderer/features/tools/`

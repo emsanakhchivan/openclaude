@@ -12,4 +12,5 @@ export const sessions = sqliteTable("sessions", {
     .default("ask"),
   createdAt: integer("created_at", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
   updatedAt: integer("updated_at", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
+  archivedAt: integer("archived_at", { mode: "timestamp" }), // Soft delete - null = active session
 })

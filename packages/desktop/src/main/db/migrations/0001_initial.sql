@@ -24,7 +24,8 @@ CREATE TABLE IF NOT EXISTS sessions (
   model TEXT NOT NULL,
   permission_mode TEXT NOT NULL DEFAULT 'ask' CHECK (permission_mode IN ('ask', 'accept_edits', 'plan', 'bypass')),
   created_at INTEGER NOT NULL DEFAULT (unixepoch()),
-  updated_at INTEGER NOT NULL DEFAULT (unixepoch())
+  updated_at INTEGER NOT NULL DEFAULT (unixepoch()),
+  archived_at INTEGER -- Soft delete: null = active, timestamp = archived
 );
 
 CREATE TABLE IF NOT EXISTS messages (
