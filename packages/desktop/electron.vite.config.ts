@@ -2,10 +2,29 @@ import { defineConfig, externalizeDepsPlugin } from "electron-vite"
 import { resolve } from "path"
 import react from "@vitejs/plugin-react"
 import { cspTransform } from "./vite-plugins/csp-transform"
+import { copyFileSync, mkdirSync, readdirSync, existsSync } from "fs"
+
+/** Copies migration SQL files to the build output so __dirname resolution works in production */
+function copyMigrationsPlugin() {
+  return {
+    name: "copy-migrations",
+    closeBundle() {
+      const srcDir = resolve(__dirname, "src/main/db/migrations")
+      const outDir = resolve(__dirname, "out/main/migrations")
+      if (!existsSync(srcDir)) return
+      mkdirSync(outDir, { recursive: true })
+      for (const file of readdirSync(srcDir)) {
+        if (file.endsWith(".sql")) {
+          copyFileSync(resolve(srcDir, file), resolve(outDir, file))
+        }
+      }
+    },
+  }
+}
 
 export default defineConfig({
   main: {
-    plugins: [externalizeDepsPlugin()],
+    plugins: [externalizeDepsPlugin(), copyMigrationsPlugin()],
     resolve: {
       alias: {
         "@gitlawb/openclaude/sdk": resolve(__dirname, "../../dist/sdk.mjs"),

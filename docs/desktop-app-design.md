@@ -132,6 +132,16 @@ packages/desktop/
 │   │   │   └── mcp/
 │   │   │       ├── components/
 │   │   │       └── store.ts
+│   │   │   ├── diff/
+│   │   │   │   ├── components/
+│   │   │   │   │   ├── DiffViewer.tsx          # Unified + split diff views
+│   │   │   │   │   ├── DiffHeader.tsx          # File path, +/- counts, view toggle
+│   │   │   │   │   ├── DiffNavigation.tsx      # Next/prev change buttons
+│   │   │   │   │   ├── InlineDiff.tsx          # Inline diff in chat messages
+│   │   │   │   │   └── DiffMinimap.tsx         # Minimap overview for large diffs
+│   │   │   │   ├── hooks/
+│   │   │   │   │   └── useDiff.ts              # Diff computation + view mode
+│   │   │   │   └── store.ts
 │   │   │   ├── skills/
 │   │   │   │   ├── components/
 │   │   │   │   │   ├── SkillList.tsx         # Slash command list + search
@@ -283,9 +293,12 @@ useChat() hook                    SDK Host Layer
 - `getPreferences` / `setPreferences` — preferences CRUD
 
 **projectsRouter**:
-- `listProjects` — query, lists workspaces
-- `openProject` — mutation, switches active workspace
-- `getGitStatus` — query, returns git status for project
+- `listProjects` — query, lists all persisted projects sorted by lastOpenedAt
+- `openFolder` — mutation, opens native folder picker, validates path, saves to DB
+- `openProject` — mutation, switches active project by id
+- `getProject` — query, returns single project with git metadata
+- `validateProject` — query, checks project path exists and is accessible
+- `getGitStatus` — query, returns git status for project (branch, staged, unstaged)
 
 **mcpRouter**:
 - `listServers` — query, lists configured MCP servers
@@ -318,7 +331,7 @@ useChat() hook                    SDK Host Layer
 ### Tables
 
 **projects**:
-- id, name, path, gitBranch, lastOpenedAt, createdAt
+- id, name, path, gitBranch, gitRemoteUrl, gitProvider, gitOwner, gitRepo, lastOpenedAt, createdAt
 
 **sessions**:
 - id, projectId, title, provider, model, permissionMode (ask|accept_edits|plan|bypass), createdAt, updatedAt
@@ -360,34 +373,141 @@ useChat() hook                    SDK Host Layer
 - Content: Drizzle schema (all tables), SQLite client, migration system, seed data, query helpers
 - Tests: Schema tests, migration tests, CRUD operation tests
 
-**PR4: React App Skeleton + UI Kit** (~2000 lines)
+**PR4: Frontend Draft / UI Reference** (~2000 lines)
 - Files: `src/renderer/` (skeleton), `tailwind.config.ts`, `src/renderer/components/ui/`, `src/renderer/styles/`
 - Content: Vite renderer config, Tailwind setup, 10-15 shadcn base components, App shell layout, theme system, routing skeleton
 - Tests: Component rendering tests, theme toggle tests
+- **Note**: PR4 branch (`desktop/pr4-react-ui-shell`) serves as a visual reference and will not be merged as-is. Final UI implementation will be built per-wave.
 
-### Wave 2: Core Features (4 PRs, parallel, requires Wave 1)
+### Wave 2: Core Features — Phase A (2 PRs, parallel, requires Wave 1)
 
-**PR5: Chat UI + Streaming** (~2500 lines)
-- Files: `src/renderer/features/chat/`, `src/main/ipc/routers/chat.ts`
-- Content: Message list component, input area with file attachment, streaming message display, markdown rendering, code block rendering, **PermissionModeSelector** (dropdown in chat input), **PermissionDialog** (tool approval modal), **PermissionBadge** (mode indicator), chat store
-- Tests: Message rendering tests, streaming mock tests, input component tests, **permission mode selector tests**, **approval dialog tests**
+PR5 (Chat UI) requires an active provider connection and API key to function. Therefore SDK Host and Settings must land first.
 
-**PR6: SDK Host Integration** (~2500 lines)
-- Files: `src/main/sdk/`, `src/main/ipc/routers/chat.ts` (extended), `src/main/ipc/routers/tools.ts`
+**PR5: SDK Host Integration** (~2500 lines)
+- Files: `src/main/sdk/`, `src/main/ipc/routers/chat.ts`, `src/main/ipc/routers/tools.ts`
 - Content: SDK host (session lifecycle, provider management), event→tRPC bridge, streaming pipeline, tool approval flow, **permission mode enforcement** (`permissions.ts` — auto-approve logic per mode), error handling
 - Tests: SDK host unit tests, session lifecycle tests, event bridge tests, **permission enforcement tests**
 
-**PR7: Tool System UI** (~2000 lines)
-- Files: `src/renderer/features/tools/`
-- Content: Tool call display component, result rendering (text, diff, file), approval/reject buttons, tool status indicators, tool call store
-- Tests: Tool rendering tests, approval flow tests
-
-**PR8: Settings UI** (~1800 lines)
+**PR6: Settings UI + Provider Setup** (~1800 lines)
 - Files: `src/renderer/features/settings/`, `src/main/ipc/routers/settings.ts`
 - Content: Provider configuration forms, API key management (encrypted storage), model selection, preferences, theme toggle, settings store
 - Tests: Settings form tests, provider config tests
 
-### Wave 3: Advanced Features (4 PRs, parallel, requires Wave 2)
+### Wave 2: Core Features — Phase B (2 PRs, parallel, requires Phase A)
+
+**PR7: Chat UI + Streaming + Projects** (~4000 lines)
+- Files: `src/renderer/features/chat/`, `src/renderer/features/projects/`, `src/main/ipc/routers/chat.ts`, `src/main/ipc/routers/projects.ts`
+- Content: Message list component, input area with file attachment, streaming message display, markdown rendering, code block rendering, **PermissionModeSelector** (dropdown in chat input), **PermissionDialog** (tool approval modal), **PermissionBadge** (mode indicator), **ProjectSelector** (folder picker + recent projects), **NewChatForm** (project selection flow), chat store, project store
+- Tests: Message rendering tests, streaming mock tests, input component tests, permission mode selector tests, approval dialog tests, project selection tests
+
+#### PR5 Detail: Chat Input — Rich Text & Mentions
+
+**Custom textarea** (not TipTap/Lexical — keep simple):
+- Plain `<textarea>` with overlay for mention chips and slash command dropdown
+- `@` prefix triggers file mention dropdown with fuzzy search over project files
+- Selected files shown as inline chips/tags in the input area
+- File content passed as context to AI via SDK host
+- Drag & drop file support — dropped files appear as chips
+- Multi-line: `Shift+Enter` for newline, `Enter` sends
+- Autogrow: textarea height adjusts to content (max ~40vh)
+
+#### PR5 Detail: Slash Command Autocomplete
+
+- `/` prefix triggers dropdown of available skills/commands (from `skillsRouter.listSkills`)
+- Dropdown shows: command name, short description, source plugin name
+- Filtered by typing after `/` (fuzzy match on name + description)
+- `Enter` or click to insert command; `Escape` to dismiss
+- Arrow key navigation within dropdown
+- Commands sourced from: file-based `.claude/skills/`, plugin-contributed, bundled, MCP tools
+
+#### PR5 Detail: Streaming Rendering
+
+- tRPC subscription (`onStream`) for real-time response chunks
+- Progressive markdown rendering — render partial content as it arrives
+- Token count live update in input area context circle (input tokens consumed)
+- Abort button visible during streaming (calls `trpc.chat.abort()`)
+- Streaming state tracked in chat store: `idle | streaming | paused | error`
+
+#### PR5 Detail: Virtualized Message List
+
+- Library: `@tanstack/react-virtual`
+- Dynamic row height estimation based on content length
+- Overscan: 5 messages above/below viewport for smooth scrolling
+- Auto-scroll to bottom on new assistant message (unless user has scrolled up)
+- "Scroll to bottom" floating button appears when not at bottom
+
+#### PR5 Detail: Project Selection & Management
+
+**New Chat Flow** (1code pattern):
+1. User clicks "New Chat" (or app opens fresh)
+2. `NewChatForm` renders — shows "Select folder" if no project selected
+3. User picks project via `ProjectSelector` dropdown (recent list or open folder dialog)
+4. Once project selected → chat input becomes active, model/provider selectors appear
+5. User types message → SDK host creates session with project context → chat begins
+
+**ProjectSelector component**:
+- Button showing current project name (or "Select folder" placeholder)
+- Dropdown popover with: search input, recent projects list, "Open folder…" button
+- Search filters recent projects by name/path (fuzzy match)
+- Each project row: project name, path (truncated), git provider icon if applicable
+- Selected project highlighted with checkmark
+- "Open folder…" opens native OS folder picker via `trpc.projects.openFolder` mutation
+
+**Project persistence** (1code pattern):
+- All opened projects saved to SQLite `projects` table (id, name, path, gitBranch, gitRemoteUrl, gitProvider, gitOwner, gitRepo, lastOpenedAt)
+- Jotai atom `selectedProjectAtom` with localStorage persistence (survives app restart)
+- Project validation on load: check project still exists on disk, remove stale entries
+- `lastOpenedAt` updated on every chat start → recent projects sorted by recency
+- Project metadata: git remote URL, git provider (GitHub/GitLab/Bitbucket), owner, repo name
+
+**NewChatForm component**:
+- Conditional render: no project → centered "Select folder" CTA
+- Project selected → full chat input with project badge, model selector, permission mode
+- Project badge clickable → reopens ProjectSelector to switch mid-session
+- Auto-creates new session in DB on first message send
+
+**tRPC endpoints** (projectsRouter — expanded for PR7):
+- `listProjects` — query, returns all persisted projects sorted by lastOpenedAt
+- `openFolder` — mutation, opens native folder picker, validates path, saves to DB, returns project
+- `getProject` — query, returns single project by id with git status
+- `validateProject` — query, checks project path exists and is accessible
+- `getGitStatus` — query, returns git status for active project (branch, staged, unstaged)
+
+**PR8: Tool System UI** (~2000 lines)
+- Files: `src/renderer/features/tools/`
+- Content: Tool call display component, result rendering (text, diff, file), approval/reject buttons, tool status indicators, tool call store
+- Tests: Tool rendering tests, approval flow tests
+
+#### PR8 Detail: Tool-Specific Rendering
+
+**Bash Tool**:
+- Expandable card showing: command (in monospace), output, exit code badge
+- ANSI color support for terminal output (parse ANSI escape codes → styled spans)
+- Output collapsible for long outputs (>20 lines shows "Show more" toggle)
+- Exit code: `0` → green badge, non-zero → red badge with error details
+- Copy button for command + output
+
+**File Edit Tool**:
+- Inline diff preview (unified view) directly in chat message
+- File path header with `+N/-M` line count badges (green/red)
+- Syntax highlighting via Monaco grammar tokens (same as editor feature)
+- "Accept" / "Reject" buttons per edit (when in Ask/Accept edits mode)
+- Collapsed by default — click to expand full diff
+
+**Web Search Tool**:
+- Search query display at top of card
+- Result cards: title (clickable), snippet text, source URL
+- Expandable for full page content (fetched via SDK)
+- Source domain favicon/icon next to each result
+
+**Generic Tool Call**:
+- Tool name + status indicator (spinner for running, checkmark for completed, X for failed)
+- Expandable input JSON (syntax highlighted, collapsible)
+- Expandable output JSON (same treatment)
+- Duration display: `X.Xs` in muted text
+- Error state: red border, error message, retry button
+
+### Wave 3: Advanced Features (3 PRs, parallel, requires Wave 2)
 
 **PR9: Monaco Editor Integration** (~2500 lines)
 - Files: `src/renderer/features/editor/`
@@ -399,21 +519,50 @@ useChat() hook                    SDK Host Layer
 - Content: Side-by-side diff view, unified diff view, file change visualization, syntax-aware diff, navigation (next/prev change)
 - Tests: Diff rendering tests, navigation tests
 
+#### PR10 Detail: Diff Viewer Implementation
+
+**Library**: `diff` npm package for diff computation (char-level + line-level)
+
+**Two view modes**:
+- Unified (default): single column with `+`/`-` line markers, added lines green-tinted, removed lines red-tinted
+- Split (side-by-side): two columns — left = before, right = after; aligned by unchanged lines
+- Toggle button in `DiffHeader` to switch between modes
+
+**Navigation**:
+- Next/prev change buttons (jump between diff hunks)
+- Change count badge: `Change 3 of 12`
+- Keyboard shortcuts: `Alt+Down` next, `Alt+Up` prev
+
+**File stats header** (`DiffHeader`):
+- File path (clickable → open in editor)
+- `+N added, -M removed` line count badges
+- File extension icon (language-specific)
+- View mode toggle (unified ↔ split)
+
+**Minimap overview** (`DiffMinimap`):
+- Thin vertical bar showing full file with colored change markers
+- Click to jump to change region
+- Only shown for files >100 lines
+
+**Syntax-aware highlighting**:
+- Leverages Monaco grammars for language detection
+- Syntax tokens preserved within added/removed lines
+
+**Inline Diff (in chat — from PR8)**:
+- Already defined in PR8 File Edit Tool spec
+- Unified view inline in message, expandable/collapsible
+- Syntax-colored added/removed lines
+
 **PR11: MCP Management UI** (~1800 lines)
 - Files: `src/renderer/features/mcp/`, `src/main/ipc/routers/mcp.ts`
 - Content: MCP server list, add/remove server forms, server status display, tool discovery per server, configuration editor
 - Tests: MCP UI tests, server management tests
 
-**PR12: Project Management** (~2000 lines)
-- Files: `src/renderer/features/projects/`, `src/main/ipc/routers/projects.ts`
-- Content: Project list with recent projects, workspace switching, git status display, project settings, folder picker
-- Tests: Project list tests, workspace switching tests
-
 ### Wave 4: Skills + Stats (2 PRs, parallel, requires Wave 2)
 
 These PRs only depend on Wave 1 (tRPC, DB, React skeleton) and Wave 2 (SDK host). They are independent of Wave 3 features.
 
-**PR13: Plugin Management + Skills/Slash Commands UI** (~2500 lines)
+**PR12: Plugin Management + Skills/Slash Commands UI** (~2500 lines)
 - Files: `src/renderer/features/skills/`, `src/main/ipc/routers/skills.ts`, `src/main/sdk/pluginHost.ts`
 - Content:
   - **Plugin lifecycle management**: Install, uninstall, enable, disable, update plugins with robust state tracking
@@ -427,7 +576,7 @@ These PRs only depend on Wave 1 (tRPC, DB, React skeleton) and Wave 2 (SDK host)
   - **Integration**: Slash command autocomplete in chat input (type `/` → dropdown of matching skills, shows which plugin provides each)
 - Tests: Plugin lifecycle tests (install/uninstall/enable/disable), plugin isolation tests, skill discovery tests, autocomplete tests, skill execution tests, plugin crash recovery tests
 
-**PR14: Stats Dashboard with Graphs** (~2500 lines)
+**PR13: Stats Dashboard with Graphs** (~2500 lines)
 - Files: `src/renderer/features/stats/`, `src/main/ipc/routers/stats.ts`
 - Dependencies: `recharts` (chart library)
 - Content:
@@ -442,29 +591,29 @@ These PRs only depend on Wave 1 (tRPC, DB, React skeleton) and Wave 2 (SDK host)
 
 ### Wave 5: Polish & Distribution (3 PRs, parallel, requires Wave 3 + 4)
 
-**PR15: UX Polish + Animations** (~1500 lines)
+**PR14: UX Polish + Animations** (~1500 lines)
 - Files: Various `src/renderer/` files
 - Content: Loading states, transitions, keyboard shortcuts, accessibility improvements, empty states, error states
 - Tests: Keyboard shortcut tests, a11y tests
 
-**PR16: Auto-updater + Deep Linking** (~1200 lines)
+**PR15: Auto-updater + Deep Linking** (~1200 lines)
 - Files: `src/main/services/`
 - Content: electron-updater integration, protocol handler (`openclaude://`), beta channel support, update notification UI
 - Tests: Protocol handler tests, updater tests
 
-**PR17: Test Suite** (~2500 lines)
+**PR16: Test Suite** (~2500 lines)
 - Files: `tests/`
 - Content: Comprehensive unit tests, integration tests, component tests, test utilities, mock factories, CI test scripts
 - Tests: Meta — this IS the tests
 
 ### Wave 6: Packaging (1 PR, requires Wave 5)
 
-**PR18: Build Pipeline + CI** (~1500 lines)
+**PR17: Build Pipeline + CI** (~1500 lines)
 - Files: `.github/workflows/`, `scripts/`, `electron-builder.yml`
 - Content: electron-builder config, multi-platform build (macOS, Windows, Linux), code signing setup, GitHub Actions CI pipeline, release automation
 - Tests: Build smoke tests
 
-### Total: 18 PRs, 6 Waves, ~33,500 lines
+### Total: 17 PRs, 6 Waves, ~33,500 lines
 
 ### Parallel Safety
 
@@ -473,19 +622,22 @@ Each wave's PRs touch different directories:
 | Wave | PR1 dir | PR2 dir | PR3 dir | PR4 dir |
 |------|---------|---------|---------|---------|
 | 1 | `main/index` | `shared/`+`preload/` | `main/db/` | `renderer/` |
-| 2 | `renderer/features/chat/` | `main/sdk/`+`main/ipc/routers/` | `renderer/features/tools/` | `renderer/features/settings/` |
-| 3 | `renderer/features/editor/` | `renderer/features/diff/` | `renderer/features/mcp/` | `renderer/features/projects/` |
+| 2A | `main/sdk/`+`main/ipc/routers/` | `renderer/features/settings/` | — | — |
+| 2B | `renderer/features/chat/`+`renderer/features/projects/` | `renderer/features/tools/` | — | — |
+| 3 | `renderer/features/editor/` | `renderer/features/diff/` | `renderer/features/mcp/` | — |
 | 4 | `renderer/features/skills/` | `renderer/features/stats/` | — | — |
 
-Note: All Wave 3 PRs touch completely separate feature directories. PR9 (editor) and PR10 (diff) are independent — PR10 has its own `diff/` feature folder with its own components. Diff viewer imports Monaco from editor as a dependency but does not modify editor source.
+**Dependency order within Wave 2**: Phase A (PR5 SDK Host + PR6 Settings) must merge before Phase B (PR7 Chat UI + PR8 Tool UI). Chat UI and tool rendering are meaningless without an active provider connection and API key.
 
-Wave 3 and Wave 4 can partially overlap — Wave 4 PRs only depend on Wave 1 + 2 (tRPC, DB, SDK host, React skeleton), not on Wave 3 features (editor, diff, MCP, projects).
+PR7 (Chat + Projects) combines chat UI and project selection because the new-chat flow requires both — user picks a folder then starts chatting. This is the 1code pattern.
+
+Wave 3 and Wave 4 can partially overlap — Wave 4 PRs only depend on Wave 1 + 2 (tRPC, DB, SDK host, React skeleton), not on Wave 3 features (editor, diff, MCP).
 
 ## 8. Technology Stack Summary
 
 | Layer | Technology | Version |
 |-------|-----------|---------|
-| Runtime | Electron | ^34 |
+| Runtime | Electron | ^39 |
 | Build | electron-vite | ^3 |
 | Package | electron-builder | ^26 |
 | Frontend | React | 19.x |
@@ -661,25 +813,27 @@ Desktop should apply similar gradients to main content areas (chat background, s
 
 When rebranding the PR4 UI to match this design system, apply ALL of the following:
 
-- [ ] **Font**: Replace `Inter` + `Outfit` with `Fira Code` monospace stack everywhere
-- [ ] **Accent**: Replace `#0034FF` (blue) with `#ff7a1a` (orange) in all theme tokens
-- [ ] **Colors**: Replace zinc palette with warm `#1a1208`-based light theme + `#000` dark theme
-- [ ] **Theme toggle**: Add light/dark switch (default light) with `localStorage` persistence
-- [ ] **Border radius**: Remove all `border-radius` — everything sharp-cornered
-- [ ] **Border style**: Replace solid dividers with dashed where appropriate
-- [ ] **Focus rings**: Use `1px solid var(--accent); outline-offset: 3px`
-- [ ] **Selection**: Orange selection color
-- [ ] **Splash screen**: Monospace text, orange glow, light background
-- [ ] **Sidebar**: Warm colors, monospace font, dashed dividers
-- [ ] **Chat input**: Sharp corners, orange focus glow instead of blue
-- [ ] **Model/Mode dropdowns**: Sharp corners, orange accent, monospace
-- [ ] **Settings**: Warm palette, dashed separators, sharp cards
-- [ ] **Scrollbars**: 3px width, themed thumb color
-- [ ] **Scrollbar**: Minimal 3px custom scrollbar
-- [ ] **Body gradients**: Add radial orange wash gradients
-- [ ] **Title bar**: Frosted glass effect, warm colors
-- [ ] **Logo**: Monospace font instead of Outfit
-- [ ] **All interactive elements**: Orange accent on hover/focus/active states
+- [x] **Font**: Replace `Inter` + `Outfit` with `Fira Code` monospace stack everywhere
+- [x] **Accent**: Replace `#0034FF` (blue) with `#ff7a1a` (orange) in all theme tokens
+- [x] **Colors**: Replace zinc palette with warm `#1a1208`-based light theme + `#000` dark theme
+- [x] **Theme toggle**: Add light/dark switch (default light) with `localStorage` persistence
+- [x] **Border radius**: Remove all `border-radius` — everything sharp-cornered
+- [x] **Border style**: Replace solid dividers with dashed where appropriate
+- [x] **Focus rings**: Use `1px solid var(--accent); outline-offset: 3px`
+- [x] **Selection**: Orange selection color
+- [x] **Splash screen**: Monospace text, orange glow, light background
+- [x] **Sidebar**: Warm colors, monospace font, dashed dividers
+- [x] **Chat input**: Sharp corners, orange focus glow instead of blue
+- [x] **Model/Mode dropdowns**: Sharp corners, orange accent, monospace
+- [x] **Settings**: Warm palette, dashed separators, sharp cards
+- [x] **Scrollbars**: 3px width, themed thumb color
+- [x] **Scrollbar**: Minimal 3px custom scrollbar
+- [x] **Body gradients**: Add radial orange wash gradients
+- [x] **Title bar**: Frosted glass effect, warm colors
+- [x] **Logo**: Monospace font instead of Outfit
+- [x] **All interactive elements**: Orange accent on hover/focus/active states
+
+*Completed in PR4 draft branch (`desktop/pr4-react-ui-shell`).*
 
 ## 10. Constraints and Non-Goals
 
@@ -697,3 +851,6 @@ When rebranding the PR4 UI to match this design system, apply ALL of the followi
 - Mobile companion app
 - Cloud sync
 - Plugin/extension system
+- Embedded rich text editor (TipTap/Lexical) — plain textarea + mention chips only
+- Web preview / device simulation
+- Sub-chat / threaded conversations

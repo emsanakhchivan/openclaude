@@ -5,7 +5,7 @@ export const toolCalls = sqliteTable("tool_calls", {
   id: text("id").primaryKey(),
   messageId: text("message_id")
     .notNull()
-    .references(() => messages.id),
+    .references(() => messages.id, { onDelete: "cascade" }),
   toolName: text("tool_name").notNull(),
   input: text("input", { mode: "json" }),
   output: text("output", { mode: "json" }),

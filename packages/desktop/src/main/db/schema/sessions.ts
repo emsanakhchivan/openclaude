@@ -3,7 +3,7 @@ import { projects } from "./projects"
 
 export const sessions = sqliteTable("sessions", {
   id: text("id").primaryKey(),
-  projectId: text("project_id").references(() => projects.id),
+  projectId: text("project_id").references(() => projects.id, { onDelete: "cascade" }),
   title: text("title"),
   provider: text("provider").notNull(),
   model: text("model").notNull(),

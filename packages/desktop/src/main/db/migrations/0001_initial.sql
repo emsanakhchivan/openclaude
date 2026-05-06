@@ -6,13 +6,19 @@ CREATE TABLE IF NOT EXISTS projects (
   name TEXT NOT NULL,
   path TEXT NOT NULL,
   git_branch TEXT,
+  git_remote_url TEXT,
+  git_provider TEXT CHECK (git_provider IN ('github', 'gitlab', 'bitbucket')),
+  git_owner TEXT,
+  git_repo TEXT,
   last_opened_at INTEGER,
   created_at INTEGER NOT NULL DEFAULT (unixepoch())
 );
 
+CREATE UNIQUE INDEX IF NOT EXISTS idx_projects_path ON projects(path);
+
 CREATE TABLE IF NOT EXISTS sessions (
   id TEXT PRIMARY KEY,
-  project_id TEXT REFERENCES projects(id),
+  project_id TEXT REFERENCES projects(id) ON DELETE CASCADE,
   title TEXT,
   provider TEXT NOT NULL,
   model TEXT NOT NULL,
@@ -23,7 +29,7 @@ CREATE TABLE IF NOT EXISTS sessions (
 
 CREATE TABLE IF NOT EXISTS messages (
   id TEXT PRIMARY KEY,
-  session_id TEXT NOT NULL REFERENCES sessions(id),
+  session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
   role TEXT NOT NULL CHECK (role IN ('user', 'assistant', 'tool', 'system')),
   content TEXT NOT NULL,
   metadata TEXT,
@@ -33,7 +39,7 @@ CREATE TABLE IF NOT EXISTS messages (
 
 CREATE TABLE IF NOT EXISTS tool_calls (
   id TEXT PRIMARY KEY,
-  message_id TEXT NOT NULL REFERENCES messages(id),
+  message_id TEXT NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
   tool_name TEXT NOT NULL,
   input TEXT,
   output TEXT,

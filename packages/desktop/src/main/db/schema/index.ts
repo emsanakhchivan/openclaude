@@ -6,3 +6,9 @@ export { settings } from "./settings"
 export { mcpServers } from "./mcp-servers"
 export { providerKeys } from "./provider-keys"
 export { plugins } from "./plugins"
+export {
+  projectsRelations,
+  sessionsRelations,
+  messagesRelations,
+  toolCallsRelations,
+} from "./relations"

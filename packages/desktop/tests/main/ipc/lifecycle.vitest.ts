@@ -29,6 +29,18 @@ vi.mock("electron", () => ({
     loadFile: vi.fn(),
   })),
   shell: { openExternal: vi.fn() },
+  session: {
+    defaultSession: {
+      webRequest: {
+        onHeadersReceived: vi.fn(),
+      },
+    },
+  },
+}))
+
+vi.mock("../../../src/main/db/client", () => ({
+  initDb: vi.fn(),
+  closeDb: vi.fn(),
 }))
 
 describe("IPC Handler Lifecycle", () => {
