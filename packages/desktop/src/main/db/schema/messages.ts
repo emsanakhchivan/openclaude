@@ -24,7 +24,7 @@ export const messagesJsonl = sqliteTable("messages_jsonl", {
   // Extracted metadata for indexed queries
   uuid: text("uuid").notNull(), // Message UUID for lookup
   parentUuid: text("parent_uuid"), // Tree structure (null = root)
-  role: text("role", { enum: ["user", "assistant", "tool", "system"] }).notNull(),
+  role: text("role", { enum: ["user", "assistant", "system"] }).notNull(),
   createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
   toolName: text("tool_name"), // Extracted if tool_use present (null for text)
 })

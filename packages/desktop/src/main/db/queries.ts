@@ -1,6 +1,6 @@
 import { getDrizzle } from "./client"
 import { projects, sessions, messagesJsonl } from "./schema"
-import { eq, desc, isNull } from "drizzle-orm"
+import { eq, desc, isNull, sql } from "drizzle-orm"
 
 /**
  * Query helpers for common database operations
@@ -65,30 +65,51 @@ export async function unarchiveSession(sessionId: string) {
 /**
  * Save SDK JSONL message line (hybrid storage)
  * Extracts metadata for queries, preserves raw content
+ *
+ * SDK entry handling:
+ * - Skip entries without uuid (metadata: custom-title, tag, etc.)
+ * - Skip sidechain entries (isSidechain=true)
+ * - Map type → role: user, assistant, summary→system, system
+ * - Return null if not a conversational message
  */
 export async function saveMessage(sessionId: string, jsonlLine: string) {
   const db = getDrizzle()
 
-  // Parse minimal metadata (don't modify structure)
-  const parsed = JSON.parse(jsonlLine)
-  const lineNumber = await getNextLineNumber(sessionId)
-
-  // Extract metadata for indexing
-  const metadata = {
-    uuid: parsed.uuid,
-    parentUuid: parsed.parentUuid ?? null,
-    role: parsed.type,
-    createdAt: new Date(parsed.timestamp ?? Date.now()),
-    toolName: extractToolName(parsed),
+  // Parse with error handling
+  let parsed: any
+  try {
+    parsed = JSON.parse(jsonlLine)
+  } catch (e) {
+    throw new Error(`Invalid JSONL line: ${jsonlLine.slice(0, 100)}...`)
   }
 
-  // Insert raw JSONL + metadata
-  return db.insert(messagesJsonl).values({
-    sessionId,
-    lineNumber,
-    content: jsonlLine, // RAW - untouched
-    ...metadata,
-  })
+  // Skip metadata entries (no uuid) — custom-title, tag, etc.
+  if (!parsed.uuid) {
+    return null
+  }
+
+  // Skip sidechain entries
+  if (parsed.isSidechain) {
+    return null
+  }
+
+  // Map SDK type → role (SDK's entryToRole logic)
+  const role = mapSdkTypeToRole(parsed.type)
+  if (!role) {
+    // Not a conversational message, skip
+    return null
+  }
+
+  // Insert with atomic line_number via subquery
+  const result = await db.run(sql`
+    INSERT INTO messages_jsonl (session_id, line_number, content, uuid, parent_uuid, role, created_at, tool_name)
+    SELECT ${sessionId}, COALESCE(MAX(line_number), 0) + 1, ${jsonlLine}, ${parsed.uuid},
+           ${parsed.parentUuid ?? null}, ${role}, ${parsed.timestamp ?? Date.now()},
+           ${extractToolName(parsed)}
+    FROM messages_jsonl WHERE session_id = ${sessionId}
+  `)
+
+  return result
 }
 
 /** Load all messages for a session (returns raw JSONL array for SDK) */
@@ -106,18 +127,15 @@ export async function loadSessionMessages(sessionId: string) {
   return rows.map((r) => r.content)
 }
 
-/** Search messages by content (uses metadata indexes) */
+/** Search messages by content (uses LIKE query, not in-memory filter) */
 export async function searchMessages(sessionId: string, query: string) {
   const db = getDrizzle()
 
-  // Query metadata + content
-  const rows = await db
+  return db
     .select()
     .from(messagesJsonl)
     .where(eq(messagesJsonl.sessionId, sessionId))
-
-  // Filter by query (full-text search in content)
-  return rows.filter((r) => r.content.includes(query))
+    .where(sql`content LIKE ${'%' + query + '%'}`)
 }
 
 /** Filter messages by tool name */
@@ -132,18 +150,20 @@ export async function getToolCalls(sessionId: string, toolName: string) {
     .orderBy(messagesJsonl.createdAt)
 }
 
-// Helper: Get next line number for session
-async function getNextLineNumber(sessionId: string): Promise<number> {
-  const db = getDrizzle()
-  const last = await db
-    .select({ lineNumber: messagesJsonl.lineNumber })
-    .from(messagesJsonl)
-    .where(eq(messagesJsonl.sessionId, sessionId))
-    .orderBy(desc(messagesJsonl.lineNumber))
-    .limit(1)
-    .get()
-
-  return last ? last.lineNumber + 1 : 1
+// Helper: Map SDK type → role (SDK's entryToRole logic)
+function mapSdkTypeToRole(type: string): "user" | "assistant" | "system" | null {
+  switch (type) {
+    case "user":
+      return "user"
+    case "assistant":
+      return "assistant"
+    case "summary":
+      return "system" // SDK maps summary → system
+    case "system":
+      return "system"
+    default:
+      return null // tool_progress, permission_request, etc. — not conversational
+  }
 }
 
 // Helper: Extract tool name from SDK JSONL

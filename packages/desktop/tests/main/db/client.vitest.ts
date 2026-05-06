@@ -55,7 +55,7 @@ describe("Database Client", () => {
     // Permission mode enum
     expect(sql).toContain("CHECK (permission_mode IN ('ask', 'accept_edits', 'plan', 'bypass'))")
     // Message role enum (messages_jsonl)
-    expect(sql).toContain("CHECK (role IN ('user', 'assistant', 'tool', 'system'))")
+    expect(sql).toContain("CHECK (role IN ('user', 'assistant', 'system'))")
     // MCP server status enum
     expect(sql).toContain("CHECK (status IN ('stopped', 'running', 'error', 'starting'))")
     // Plugin source enum

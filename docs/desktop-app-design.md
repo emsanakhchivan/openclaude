@@ -191,7 +191,7 @@ packages/desktop/
 
 ## 4. Permission System
 
-The desktop app implements a 4-mode permission system. Unlike the CLI (which defaults to bypass) and 1code (which has no granular permissions), the desktop app defaults to the safest mode.
+The desktop app implements a 4-mode permission system. Unlike the CLI (which defaults to bypass), the desktop app defaults to the safest mode.
 
 ### Permission Modes
 
@@ -440,7 +440,7 @@ PR5 (Chat UI) requires an active provider connection and API key to function. Th
 
 #### PR5 Detail: Project Selection & Management
 
-**New Chat Flow** (1code pattern):
+**New Chat Flow**:
 1. User clicks "New Chat" (or app opens fresh)
 2. `NewChatForm` renders — shows "Select folder" if no project selected
 3. User picks project via `ProjectSelector` dropdown (recent list or open folder dialog)
@@ -455,7 +455,7 @@ PR5 (Chat UI) requires an active provider connection and API key to function. Th
 - Selected project highlighted with checkmark
 - "Open folder…" opens native OS folder picker via `trpc.projects.openFolder` mutation
 
-**Project persistence** (1code pattern):
+**Project persistence**:
 - All opened projects saved to SQLite `projects` table (id, name, path, gitBranch, gitRemoteUrl, gitProvider, gitOwner, gitRepo, lastOpenedAt)
 - Jotai atom `selectedProjectAtom` with localStorage persistence (survives app restart)
 - Project validation on load: check project still exists on disk, remove stale entries
@@ -477,7 +477,7 @@ PR5 (Chat UI) requires an active provider connection and API key to function. Th
 
 #### PR7 Detail: Sidebar Architecture (Project-Centric Design)
 
-**Key difference from 1code**: NO workspace/chats hierarchy. Direct project → session structure with lazy-loaded active chats.
+Direct project → session structure with lazy-loaded active chats.
 
 **Sidebar Layout** (top to bottom):
 ```
@@ -588,14 +588,6 @@ PR5 (Chat UI) requires an active provider connection and API key to function. Th
    - Click search icon → modal opens
    - Type "debug" → shows matching sessions from all projects
    - Click result → switches project + session
-
-**Benefits over 1code workspace pattern**:
-- ✅ Simpler UX: No intermediate "workspace" layer
-- ✅ Direct access: Quick chat button per project (bypass selector)
-- ✅ Performance: Lazy load 5 sessions, not all 100+
-- ✅ Search: Global search across all projects (premium feature)
-- ✅ Archive: Soft delete with restore capability
-- ✅ Project-centric: Projects are primary organizing unit (not chats/workspaces)
 
 **PR8: Tool System UI** (~2000 lines)
 - Files: `src/renderer/features/tools/`
@@ -753,7 +745,7 @@ Each wave's PRs touch different directories:
 
 **Dependency order within Wave 2**: Phase A (PR5 SDK Host + PR6 Settings) must merge before Phase B (PR7 Chat UI + PR8 Tool UI). Chat UI and tool rendering are meaningless without an active provider connection and API key.
 
-PR7 (Chat + Projects) combines chat UI and project selection because the new-chat flow requires both — user picks a folder then starts chatting. This is the 1code pattern.
+PR7 (Chat + Projects) combines chat UI and project selection because the new-chat flow requires both — user picks a folder then starts chatting.
 
 Wave 3 and Wave 4 can partially overlap — Wave 4 PRs only depend on Wave 1 + 2 (tRPC, DB, SDK host, React skeleton), not on Wave 3 features (editor, diff, MCP).
 

@@ -37,7 +37,7 @@ CREATE TABLE IF NOT EXISTS messages_jsonl (
   -- Extracted metadata for queries
   uuid TEXT NOT NULL,
   parent_uuid TEXT, -- Tree structure (null = root)
-  role TEXT NOT NULL CHECK (role IN ('user', 'assistant', 'tool', 'system')),
+  role TEXT NOT NULL CHECK (role IN ('user', 'assistant', 'system')),
   created_at INTEGER NOT NULL,
   tool_name TEXT, -- Extracted if tool_use present
 
@@ -53,6 +53,7 @@ CREATE INDEX IF NOT EXISTS idx_messages_role ON messages_jsonl(role);
 CREATE INDEX IF NOT EXISTS idx_messages_time ON messages_jsonl(created_at);
 CREATE INDEX IF NOT EXISTS idx_messages_tool ON messages_jsonl(tool_name);
 CREATE INDEX IF NOT EXISTS idx_messages_uuid ON messages_jsonl(uuid);
+CREATE INDEX IF NOT EXISTS idx_messages_parent ON messages_jsonl(parent_uuid);
 
 CREATE TABLE IF NOT EXISTS settings (
   key TEXT PRIMARY KEY,
