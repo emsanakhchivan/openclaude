@@ -1,6 +1,7 @@
 {
   "name": "@openclaude/desktop",
   "version": "0.1.0",
+  "private": true,
   "author": {
     "name": "OpenClaude",
     "email": "support@openclaude.dev"

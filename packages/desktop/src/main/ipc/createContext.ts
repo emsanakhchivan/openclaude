@@ -11,6 +11,9 @@ export function setMainWindow(win: BrowserWindow | null): void {
 /** Create tRPC context for each request */
 export async function createContext(_opts?: { event?: unknown }): Promise<Context> {
   return {
-    getWindow: () => mainWindow,
+    getWindow: () => {
+      if (mainWindow && !mainWindow.isDestroyed()) return mainWindow
+      return null
+    },
   }
 }
