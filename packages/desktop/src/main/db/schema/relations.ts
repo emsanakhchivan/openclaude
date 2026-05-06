@@ -1,8 +1,7 @@
 import { relations } from "drizzle-orm"
 import { projects } from "./projects"
 import { sessions } from "./sessions"
-import { messages } from "./messages"
-import { toolCalls } from "./tool-calls"
+import { messagesJsonl } from "./messages"
 
 export const projectsRelations = relations(projects, ({ many }) => ({
   sessions: many(sessions),
@@ -13,20 +12,12 @@ export const sessionsRelations = relations(sessions, ({ one, many }) => ({
     fields: [sessions.projectId],
     references: [projects.id],
   }),
-  messages: many(messages),
+  messages: many(messagesJsonl),
 }))
 
-export const messagesRelations = relations(messages, ({ one, many }) => ({
+export const messagesJsonlRelations = relations(messagesJsonl, ({ one }) => ({
   session: one(sessions, {
-    fields: [messages.sessionId],
+    fields: [messagesJsonl.sessionId],
     references: [sessions.id],
-  }),
-  toolCalls: many(toolCalls),
-}))
-
-export const toolCallsRelations = relations(toolCalls, ({ one }) => ({
-  message: one(messages, {
-    fields: [toolCalls.messageId],
-    references: [messages.id],
   }),
 }))

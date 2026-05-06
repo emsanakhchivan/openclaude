@@ -2,8 +2,7 @@ import { describe, it, expect } from "vitest"
 import {
   projects,
   sessions,
-  messages,
-  toolCalls,
+  messagesJsonl,
   settings,
   mcpServers,
   providerKeys,
@@ -11,11 +10,10 @@ import {
 } from "../../../src/main/db/schema"
 
 describe("Database Schema", () => {
-  it("exports all 8 tables", () => {
+  it("exports all 7 tables (messages + tool_calls merged into messages_jsonl)", () => {
     expect(projects).toBeDefined()
     expect(sessions).toBeDefined()
-    expect(messages).toBeDefined()
-    expect(toolCalls).toBeDefined()
+    expect(messagesJsonl).toBeDefined() // Hybrid storage
     expect(settings).toBeDefined()
     expect(mcpServers).toBeDefined()
     expect(providerKeys).toBeDefined()
@@ -42,28 +40,20 @@ describe("Database Schema", () => {
     expect(columns).toContain("permissionMode")
     expect(columns).toContain("createdAt")
     expect(columns).toContain("updatedAt")
+    expect(columns).toContain("archivedAt") // Soft delete column added
   })
 
-  it("messages table has required columns", () => {
-    const columns = Object.keys(messages)
+  it("messages_jsonl table has hybrid storage columns", () => {
+    const columns = Object.keys(messagesJsonl)
     expect(columns).toContain("id")
     expect(columns).toContain("sessionId")
+    expect(columns).toContain("lineNumber") // Order in file
+    expect(columns).toContain("content") // RAW JSONL (untouched)
+    expect(columns).toContain("uuid") // Extracted metadata
+    expect(columns).toContain("parentUuid") // Tree structure
     expect(columns).toContain("role")
-    expect(columns).toContain("content")
-    expect(columns).toContain("metadata")
-    expect(columns).toContain("tokenCount")
     expect(columns).toContain("createdAt")
-  })
-
-  it("toolCalls table has required columns", () => {
-    const columns = Object.keys(toolCalls)
-    expect(columns).toContain("id")
-    expect(columns).toContain("messageId")
-    expect(columns).toContain("toolName")
-    expect(columns).toContain("input")
-    expect(columns).toContain("output")
-    expect(columns).toContain("status")
-    expect(columns).toContain("createdAt")
+    expect(columns).toContain("toolName") // Extracted if tool_use
   })
 
   it("settings table has key-value structure", () => {

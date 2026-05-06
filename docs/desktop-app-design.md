@@ -336,23 +336,25 @@ useChat() hook                    SDK Host Layer
 **sessions**:
 - id, projectId, title, provider, model, permissionMode (ask|accept_edits|plan|bypass), createdAt, updatedAt, **archivedAt** (soft delete — null = active)
 
-**messages**:
-- id, sessionId, role (user/assistant/tool/system), content, metadata (JSON), tokenCount, createdAt
-
-**toolCalls**:
-- id, messageId, toolName, input (JSON), output (JSON), status (pending/approved/rejected/running/completed/failed), createdAt
+**messages_jsonl** (Hybrid Storage — SDK-compatible):
+- id (INTEGER PK), sessionId, lineNumber, **content** (TEXT — raw SDK JSONL line, untouched), uuid, parentUuid, role (user|assistant|tool|system), createdAt, toolName (extracted metadata for indexing)
+- **Why hybrid:** SDK uses JSONL + parentUuid tree structure. Relational tables break fork support + require conversion overhead. Hybrid preserves SDK format (content column = raw JSONL) + adds metadata columns for indexed queries.
+- **Indexes:** sessionId, role, toolName, createdAt, uuid
+- **SDK compatibility:** Load = read content → return JSONL array directly. Save = append JSONL + extract metadata. Zero conversion overhead.
 
 **settings**:
 - key, value (JSON), updatedAt
 
 **mcpServers**:
-- id, name, command, args (JSON), env (JSON), status, createdAt
+- id, name, command, args (JSON), env (JSON), status (enum: stopped|running|error|starting), createdAt
 
 **providerKeys**:
-- id, provider, encryptedKey, createdAt (encrypted via OS keychain)
+- id, provider (UNIQUE), encryptedKey, createdAt (encrypted via OS keychain in PR4+)
 
 **plugins**:
-- id, name, version, source (marketplace|local|git), path, enabled, status (loaded|error|loading|disabled), manifest (JSON), installedAt, updatedAt, lastError
+- id, name, version, source (enum: marketplace|local|git), path, enabled, status (enum: loaded|error|loading|disabled), manifest (JSON), installedAt, updatedAt, lastError
+
+**NOTE:** Original design had separate `messages` + `toolCalls` tables (flat relational). Replaced with `messages_jsonl` hybrid approach after SDK compatibility analysis (2026-05-06). SDK's JSONL format + parentUuid tree structure cannot be flattened without breaking forkSession + adding conversion overhead.
 
 ## 7. Wave-Based PR Plan
 

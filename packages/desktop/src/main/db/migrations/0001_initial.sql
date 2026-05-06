@@ -28,25 +28,31 @@ CREATE TABLE IF NOT EXISTS sessions (
   archived_at INTEGER -- Soft delete: null = active, timestamp = archived
 );
 
-CREATE TABLE IF NOT EXISTS messages (
-  id TEXT PRIMARY KEY,
+CREATE TABLE IF NOT EXISTS messages_jsonl (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
   session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+  line_number INTEGER NOT NULL,
+  content TEXT NOT NULL, -- RAW SDK JSONL line (untouched)
+
+  -- Extracted metadata for queries
+  uuid TEXT NOT NULL,
+  parent_uuid TEXT, -- Tree structure (null = root)
   role TEXT NOT NULL CHECK (role IN ('user', 'assistant', 'tool', 'system')),
-  content TEXT NOT NULL,
-  metadata TEXT,
-  token_count INTEGER,
-  created_at INTEGER NOT NULL DEFAULT (unixepoch())
+  created_at INTEGER NOT NULL,
+  tool_name TEXT, -- Extracted if tool_use present
+
+  UNIQUE(session_id, line_number)
 );
 
-CREATE TABLE IF NOT EXISTS tool_calls (
-  id TEXT PRIMARY KEY,
-  message_id TEXT NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
-  tool_name TEXT NOT NULL,
-  input TEXT,
-  output TEXT,
-  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected', 'running', 'completed', 'failed')),
-  created_at INTEGER NOT NULL DEFAULT (unixepoch())
-);
+-- Indexes for fast queries
+CREATE INDEX IF NOT EXISTS idx_sessions_project ON sessions(project_id);
+CREATE INDEX IF NOT EXISTS idx_sessions_updated ON sessions(updated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_sessions_provider ON sessions(provider);
+CREATE INDEX IF NOT EXISTS idx_messages_session ON messages_jsonl(session_id);
+CREATE INDEX IF NOT EXISTS idx_messages_role ON messages_jsonl(role);
+CREATE INDEX IF NOT EXISTS idx_messages_time ON messages_jsonl(created_at);
+CREATE INDEX IF NOT EXISTS idx_messages_tool ON messages_jsonl(tool_name);
+CREATE INDEX IF NOT EXISTS idx_messages_uuid ON messages_jsonl(uuid);
 
 CREATE TABLE IF NOT EXISTS settings (
   key TEXT PRIMARY KEY,
@@ -86,13 +92,6 @@ CREATE TABLE IF NOT EXISTS plugins (
 );
 
 -- Indexes for common queries
-CREATE INDEX IF NOT EXISTS idx_sessions_project ON sessions(project_id);
-CREATE INDEX IF NOT EXISTS idx_sessions_updated ON sessions(updated_at DESC);
-CREATE INDEX IF NOT EXISTS idx_sessions_provider ON sessions(provider);
-CREATE INDEX IF NOT EXISTS idx_messages_session ON messages(session_id);
-CREATE INDEX IF NOT EXISTS idx_messages_created ON messages(created_at);
-CREATE INDEX IF NOT EXISTS idx_tool_calls_message ON tool_calls(message_id);
-CREATE INDEX IF NOT EXISTS idx_tool_calls_status ON tool_calls(status);
 CREATE INDEX IF NOT EXISTS idx_mcp_servers_status ON mcp_servers(status);
 CREATE INDEX IF NOT EXISTS idx_plugins_status ON plugins(status);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_provider_keys_provider ON provider_keys(provider);
