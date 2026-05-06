@@ -2,6 +2,13 @@ import { router, publicProcedure } from "../trpc"
 import { app } from "electron"
 import { getDb } from "../../db/client"
 
+/**
+ * IPC Router: App endpoints
+ *
+ * IMPORTANT: Every CRUD endpoint must use zod input validation before database operations.
+ * Never use raw string concatenation in queries - always use Drizzle's query builder.
+ */
+
 export const appRouter = router({
   /** Get app version */
   getVersion: publicProcedure.query(() => {
@@ -24,20 +31,13 @@ export const appRouter = router({
   dbHealth: publicProcedure.query(() => {
     try {
       const db = getDb()
-      const tables = db
-        .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE '_%'")
-        .all() as { name: string }[]
-      return {
-        ok: true,
-        tableCount: tables.length,
-        tables: tables.map((t) => t.name),
-      }
+      // Just verify DB is responsive, don't expose internal schema
+      db.prepare("SELECT 1").get()
+      return { ok: true }
     } catch (err) {
       return {
         ok: false,
         error: err instanceof Error ? err.message : String(err),
-        tableCount: 0,
-        tables: [],
       }
     }
   }),

@@ -6,6 +6,6 @@ export const mcpServers = sqliteTable("mcp_servers", {
   command: text("command").notNull(),
   args: text("args", { mode: "json" }),
   env: text("env", { mode: "json" }),
-  status: text("status").notNull().default("stopped"),
+  status: text("status", { enum: ["stopped", "running", "error", "starting"] }).notNull().default("stopped"),
   createdAt: integer("created_at", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
 })

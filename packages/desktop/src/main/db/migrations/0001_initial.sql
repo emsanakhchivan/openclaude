@@ -59,7 +59,7 @@ CREATE TABLE IF NOT EXISTS mcp_servers (
   command TEXT NOT NULL,
   args TEXT,
   env TEXT,
-  status TEXT NOT NULL DEFAULT 'stopped',
+  status TEXT NOT NULL DEFAULT 'stopped' CHECK (status IN ('stopped', 'running', 'error', 'starting')),
   created_at INTEGER NOT NULL DEFAULT (unixepoch())
 );
 
@@ -87,8 +87,11 @@ CREATE TABLE IF NOT EXISTS plugins (
 -- Indexes for common queries
 CREATE INDEX IF NOT EXISTS idx_sessions_project ON sessions(project_id);
 CREATE INDEX IF NOT EXISTS idx_sessions_updated ON sessions(updated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_sessions_provider ON sessions(provider);
 CREATE INDEX IF NOT EXISTS idx_messages_session ON messages(session_id);
 CREATE INDEX IF NOT EXISTS idx_messages_created ON messages(created_at);
 CREATE INDEX IF NOT EXISTS idx_tool_calls_message ON tool_calls(message_id);
 CREATE INDEX IF NOT EXISTS idx_tool_calls_status ON tool_calls(status);
+CREATE INDEX IF NOT EXISTS idx_mcp_servers_status ON mcp_servers(status);
 CREATE INDEX IF NOT EXISTS idx_plugins_status ON plugins(status);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_provider_keys_provider ON provider_keys(provider);
