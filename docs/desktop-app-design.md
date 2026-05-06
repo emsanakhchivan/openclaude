@@ -1,7 +1,7 @@
 # OpenClaude Desktop App Design
 
 **Date**: 2026-05-03
-**Status**: Approved
+**Status**: Draft
 **Scope**: Full GUI desktop app with CLI parity, built on OpenClaude SDK
 
 ## 1. Overview
