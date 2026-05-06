@@ -1,5 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest"
 import { render, screen } from "@testing-library/react"
+import { trpc } from "../../src/renderer/lib/trpc"
+import { ipcLink } from "trpc-electron/renderer"
 
 // Mock must come before import of the component
 vi.mock("../../src/renderer/lib/trpc", () => ({
@@ -9,6 +11,10 @@ vi.mock("../../src/renderer/lib/trpc", () => ({
     )),
     createClient: vi.fn(() => ({})),
   },
+}))
+
+vi.mock("trpc-electron/renderer", () => ({
+  ipcLink: vi.fn((opts: any) => ({ type: "ipc-link", transformer: opts?.transformer })),
 }))
 
 vi.mock("@tanstack/react-query", () => ({
@@ -42,8 +48,12 @@ describe("TRPCProvider", () => {
         <div>test</div>
       </TRPCProvider>,
     )
-    // Verify createClient was called (imported from mocked module)
-    expect(screen.getAllByTestId("trpc-react-provider").length).toBeGreaterThan(0)
+    // Verify ipcLink was called with superjson transformer
+    expect(ipcLink).toHaveBeenCalledWith({ transformer: expect.anything() })
+    // Verify createClient was called with links array containing ipcLink result
+    expect(trpc.createClient).toHaveBeenCalledWith({
+      links: [expect.anything()],
+    })
   })
 
   it("wraps with both tRPC Provider and QueryClientProvider", () => {

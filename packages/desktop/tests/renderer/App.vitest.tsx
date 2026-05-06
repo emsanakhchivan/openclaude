@@ -71,3 +71,85 @@ describe("App", () => {
     expect(platforms.length).toBeGreaterThan(0)
   })
 })
+
+describe("App — loading state", () => {
+  beforeEach(() => {
+    vi.resetModules()
+  })
+
+  it("shows loading state when queries are pending", async () => {
+    vi.doMock("../../src/renderer/lib/trpc", () => ({
+      trpc: {
+        app: {
+          getVersion: {
+            useQuery: vi.fn(() => ({
+              data: undefined,
+              isLoading: true,
+              error: null,
+              refetch: vi.fn(),
+            })),
+          },
+          getPlatform: {
+            useQuery: vi.fn(() => ({
+              data: undefined,
+              isLoading: true,
+              error: null,
+              refetch: vi.fn(),
+            })),
+          },
+        },
+        Provider: vi.fn(({ children }) => children),
+        createClient: vi.fn(),
+      },
+    }))
+
+    vi.doMock("../../src/renderer/contexts/TRPCProvider", () => ({
+      TRPCProvider: ({ children }: { children: React.ReactNode }) => (
+        <div data-testid="trpc-provider">{children}</div>
+      ),
+    }))
+
+    const { App: AppLoading } = await import("../../src/renderer/App")
+    render(<AppLoading />)
+    expect(screen.getByText("Loading...")).toBeDefined()
+  })
+
+  it("shows error state and retry button when queries fail", async () => {
+    vi.doMock("../../src/renderer/lib/trpc", () => ({
+      trpc: {
+        app: {
+          getVersion: {
+            useQuery: vi.fn(() => ({
+              data: undefined,
+              isLoading: false,
+              error: { message: "Connection refused" },
+              refetch: vi.fn(),
+            })),
+          },
+          getPlatform: {
+            useQuery: vi.fn(() => ({
+              data: undefined,
+              isLoading: false,
+              error: null,
+              refetch: vi.fn(),
+            })),
+          },
+        },
+        Provider: vi.fn(({ children }) => children),
+        createClient: vi.fn(),
+      },
+    }))
+
+    vi.doMock("../../src/renderer/contexts/TRPCProvider", () => ({
+      TRPCProvider: ({ children }: { children: React.ReactNode }) => (
+        <div data-testid="trpc-provider">{children}</div>
+      ),
+    }))
+
+    const { App: AppError } = await import("../../src/renderer/App")
+    render(<AppError />)
+    expect(screen.getByText("Connection failed")).toBeDefined()
+    expect(screen.getByText("Connection refused")).toBeDefined()
+    expect(screen.getByText("Retry")).toBeDefined()
+  })
+})
