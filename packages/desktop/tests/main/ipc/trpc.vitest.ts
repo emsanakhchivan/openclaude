@@ -23,10 +23,4 @@ describe("tRPC Init", () => {
     const ctx = { getWindow: () => null }
     expect(ctx.getWindow).toBeDefined()
   })
-
-  it("superjson transformer is configured", () => {
-    // Test that Date serialization works (superjson feature)
-    const date = new Date("2024-01-01")
-    expect(date instanceof Date).toBe(true)
-  })
 })

@@ -45,6 +45,8 @@ describe("tRPC Error Formatter", () => {
       await caller.fail()
     } catch (err: any) {
       expect(err).toBeDefined()
+      expect(err.data?.stack).toBeDefined()
+      expect(err.data.stack).toContain("test error")
     }
 
     process.env.NODE_ENV = originalEnv
@@ -68,6 +70,7 @@ describe("tRPC Error Formatter", () => {
       await caller.fail()
     } catch (err: any) {
       expect(err).toBeDefined()
+      expect(err.data?.stack).toBeUndefined()
     }
 
     process.env.NODE_ENV = originalEnv
