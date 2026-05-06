@@ -17,10 +17,4 @@ describe("tRPC Init", () => {
     expect(testRouter).toBeDefined()
     expect(testRouter._def.procedures.test).toBeDefined()
   })
-
-  it("context type includes getWindow", () => {
-    // Type check - Context must have getWindow
-    const ctx = { getWindow: () => null }
-    expect(ctx.getWindow).toBeDefined()
-  })
 })

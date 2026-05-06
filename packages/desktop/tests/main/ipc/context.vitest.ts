@@ -20,16 +20,23 @@ describe("tRPC Context", () => {
   })
 
   it("returns window after setMainWindow is called", async () => {
-    const mockWin = { minimize: vi.fn() } as any
+    const mockWin = { minimize: vi.fn(), isDestroyed: vi.fn(() => false) } as any
     setMainWindow(mockWin)
     const ctx = await createContext()
     expect(ctx.getWindow()).toBe(mockWin)
   })
 
   it("returns null after window is cleared", async () => {
-    const mockWin = { minimize: vi.fn() } as any
+    const mockWin = { minimize: vi.fn(), isDestroyed: vi.fn(() => false) } as any
     setMainWindow(mockWin)
     setMainWindow(null)
+    const ctx = await createContext()
+    expect(ctx.getWindow()).toBeNull()
+  })
+
+  it("returns null when window is destroyed", async () => {
+    const mockWin = { minimize: vi.fn(), isDestroyed: vi.fn(() => true) } as any
+    setMainWindow(mockWin)
     const ctx = await createContext()
     expect(ctx.getWindow()).toBeNull()
   })
