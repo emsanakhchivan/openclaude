@@ -27,8 +27,16 @@ vi.mock("electron", () => ({
     webContents: { setWindowOpenHandler: vi.fn() },
     show: vi.fn(),
     loadFile: vi.fn(),
+    isDestroyed: vi.fn(() => false),
   })),
   shell: { openExternal: vi.fn() },
+  session: {
+    defaultSession: {
+      webRequest: {
+        onHeadersReceived: vi.fn(),
+      },
+    },
+  },
 }))
 
 describe("IPC Handler Lifecycle", () => {
@@ -39,8 +47,8 @@ describe("IPC Handler Lifecycle", () => {
 
   it("setMainWindow updates window reference without creating new handler", async () => {
     const { setMainWindow, createContext } = await import("../../../src/main/ipc/createContext")
-    const win1 = { id: 1 } as any
-    const win2 = { id: 2 } as any
+    const win1 = { id: 1, isDestroyed: vi.fn(() => false) } as any
+    const win2 = { id: 2, isDestroyed: vi.fn(() => false) } as any
 
     setMainWindow(win1)
     expect((await createContext()).getWindow()).toBe(win1)
@@ -51,7 +59,7 @@ describe("IPC Handler Lifecycle", () => {
 
   it("setMainWindow(null) clears window reference", async () => {
     const { setMainWindow, createContext } = await import("../../../src/main/ipc/createContext")
-    const mockWin = { id: 1 } as any
+    const mockWin = { id: 1, isDestroyed: vi.fn(() => false) } as any
 
     setMainWindow(mockWin)
     expect((await createContext()).getWindow()).toBe(mockWin)
@@ -101,7 +109,7 @@ describe("IPC Handler Lifecycle", () => {
     // (it's inside event handlers), we verify the flag logic by confirming
     // createIPCHandler was called exactly once despite module being imported.
     const { setMainWindow } = await import("../../../src/main/ipc/createContext")
-    const win = { id: 99 } as any
+    const win = { id: 99, isDestroyed: vi.fn(() => false) } as any
     setMainWindow(win)
     // createIPCHandler should still be called only once — the guard works
     expect(createIPCHandlerMock).toHaveBeenCalledTimes(1)

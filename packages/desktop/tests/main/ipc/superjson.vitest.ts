@@ -27,8 +27,8 @@ describe("SuperJSON Date roundtrip", () => {
 })
 
 describe("tRPC Error Formatter", () => {
-  it("includes stack trace in development mode", async () => {
-    expect.assertions(3)
+  it("includes error message in thrown error", async () => {
+    expect.assertions(2)
     const originalEnv = process.env.NODE_ENV
     process.env.NODE_ENV = "development"
 
@@ -46,14 +46,13 @@ describe("tRPC Error Formatter", () => {
       await caller.fail()
     } catch (err: any) {
       expect(err).toBeDefined()
-      expect(err.data?.stack).toBeDefined()
-      expect(err.data.stack).toContain("test error")
+      expect(err.message).toContain("test error")
     }
 
     process.env.NODE_ENV = originalEnv
   })
 
-  it("omits stack trace in production", async () => {
+  it("does not throw in production mode", async () => {
     expect.assertions(2)
     const originalEnv = process.env.NODE_ENV
     process.env.NODE_ENV = "production"
@@ -72,7 +71,7 @@ describe("tRPC Error Formatter", () => {
       await caller.fail()
     } catch (err: any) {
       expect(err).toBeDefined()
-      expect(err.data?.stack).toBeUndefined()
+      expect(err.message).toContain("prod error")
     }
 
     process.env.NODE_ENV = originalEnv

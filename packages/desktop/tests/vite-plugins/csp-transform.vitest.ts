@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { cspTransform } from "../../../vite-plugins/csp-transform"
+import { cspTransform } from "../../vite-plugins/csp-transform"
 
 const DEV_HTML = `<!DOCTYPE html>
 <html lang="en">
